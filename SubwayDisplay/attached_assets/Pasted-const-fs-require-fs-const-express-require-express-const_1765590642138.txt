@@ -1,0 +1,245 @@
+const fs = require('fs');
+const express = require('express');
+const path = require('path');
+
+const app = express();
+const jsonFilePath = path.join(__dirname, 'output.json');
+
+// MTA color scheme (background + text) for each route
+const routeColors = {
+  '1': { bg: '#EE352E', text: 'white' },
+  '2': { bg: '#EE352E', text: 'white' },
+  '3': { bg: '#EE352E', text: 'white' },
+  '4': { bg: '#00933C', text: 'white' },
+  '5': { bg: '#00933C', text: 'white' },
+  '6': { bg: '#00933C', text: 'white' },
+  '7': { bg: '#B933AD', text: 'white' },
+  '7X': { bg: '#B933AD', text: 'white' },
+  'A': { bg: '#0039A6', text: 'white' },
+  'C': { bg: '#0039A6', text: 'white' },
+  'E': { bg: '#0039A6', text: 'white' },
+  'B': { bg: '#FF6319', text: 'white' },
+  'D': { bg: '#FF6319', text: 'white' },
+  'F': { bg: '#FF6319', text: 'white' },
+  'FX': { bg: '#FF6319', text: 'white' },
+  'M': { bg: '#FF6319', text: 'white' },
+  'G': { bg: '#6CBE45', text: 'white' },
+  'J': { bg: '#996633', text: 'white' },
+  'Z': { bg: '#996633', text: 'white' },
+  'L': { bg: '#A7A9AC', text: 'black' },
+  'N': { bg: '#FCCC0A', text: 'black' },
+  'Q': { bg: '#FCCC0A', text: 'black' },
+  'R': { bg: '#FCCC0A', text: 'black' },
+  'W': { bg: '#FCCC0A', text: 'black' },
+  'T': { bg: '#00ADD0', text: 'white' },
+  'GS': { bg: '#808183', text: 'white' }
+};
+
+// Reads the JSON file safely
+function readJsonFile() {
+  try {
+    const raw = fs.readFileSync(jsonFilePath, 'utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error reading JSON file:', err);
+    return [];
+  }
+}
+
+// Load JSON initially
+let jsonData = readJsonFile();
+
+// Refresh jsonData every 30 seconds
+setInterval(() => {
+  jsonData = readJsonFile();
+}, 30000);
+
+// Serve the arrivals data as JSON
+app.get('/api/arrivals', (req, res) => {
+  const r = { data: [] };
+
+  // Process each entry (limit to 46 for demonstration)
+  Object.values(jsonData).forEach((entry, index) => {
+    if (index <= 13) {
+      r.data.push({
+        line: entry.route_id,
+        stop: entry.current_stop,
+        terminal: entry.last_stop_name,
+        scheduled: entry.arrival_time,
+        status: entry.service_status
+      });
+    }
+  });
+
+  res.json(r);
+});
+
+// Serve the HTML page
+app.get('/', (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Station Arrivals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0; 
+      padding: 0; 
+      font-family: Arial, sans-serif;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      background-color: black;
+      color: white;
+    }
+    #header-container {
+      position: relative;
+      width: 80%;
+      margin: 0 auto;
+      padding-top: 10px;
+    }
+    #time-display {
+      position: relative;
+      font-size: 24px;
+      margin-top: 10px;
+    }
+    h1 {
+      margin: 10px 0 20px;
+      font-size: 36px;
+      text-decoration: overline;
+    }
+    table {
+      width: 99%;
+      margin: 20px auto;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid black;
+      padding: 10px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+    }
+    th {
+      background-color:  gray;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div id="header-container">
+    <div id="time-display"></div>
+    <h1 id="station-header">Station Name</h1>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Route</th>
+        <th>Destination</th>
+        <th>ETA (min)</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="arrival-table-body"></tbody>
+  </table>
+  <script>
+    // Show only hour:minute in Eastern Time
+    function updateTime() {
+      const now = new Date();
+      const opts = { hour: 'numeric', minute: 'numeric', timeZone: 'America/New_York' };
+      document.getElementById('time-display').innerText = now.toLocaleTimeString('en-US', opts);
+    }
+    updateTime();
+    setInterval(updateTime, 60000);
+
+    // Same route color dictionary as on server
+    const routeColors = {
+      '1': { bg: '#EE352E', text: 'white' },
+      '2': { bg: '#EE352E', text: 'white' },
+      '3': { bg: '#EE352E', text: 'white' },
+      '4': { bg: '#00933C', text: 'white' },
+      '5': { bg: '#00933C', text: 'white' },
+      '6': { bg: '#00933C', text: 'white' },
+      '7': { bg: '#B933AD', text: 'white' },
+      '7X': { bg: '#B933AD', text: 'white' },
+      'A': { bg: '#0039A6', text: 'white' },
+      'C': { bg: '#0039A6', text: 'white' },
+      'E': { bg: '#0039A6', text: 'white' },
+      'B': { bg: '#FF6319', text: 'white' },
+      'D': { bg: '#FF6319', text: 'white' },
+      'F': { bg: '#FF6319', text: 'white' },
+      'FX': { bg: '#FF6319', text: 'white' },
+      'M': { bg: '#FF6319', text: 'white' },
+      'G': { bg: '#6CBE45', text: 'white' },
+      'J': { bg: '#996633', text: 'white' },
+      'Z': { bg: '#996633', text: 'white' },
+      'L': { bg: '#A7A9AC', text: 'black' },
+      'N': { bg: '#FCCC0A', text: 'black' },
+      'Q': { bg: '#FCCC0A', text: 'black' },
+      'R': { bg: '#FCCC0A', text: 'black' },
+      'W': { bg: '#FCCC0A', text: 'black' },
+      'T': { bg: '#00ADD0', text: 'white' },
+      'GS': { bg: '#808183', text: 'white' }
+    };
+
+    async function fetchArrivals() {
+      try {
+        const resp = await fetch('/api/arrivals');
+        const json = await resp.json();
+        const tbody = document.getElementById('arrival-table-body');
+
+        // Update station header (first entry)
+        if (json.data.length > 0) {
+          document.getElementById('station-header').innerText = json.data[0].stop;
+        }
+
+        tbody.innerHTML = ''; // Clear old data
+
+        json.data.forEach(entry => {
+          // Determine the color scheme
+          const colorInfo = routeColors[entry.line] || { bg: '#FFFFFF', text: 'black' };
+
+          // Build row
+          const row = document.createElement('tr');
+
+          const routeCell = document.createElement('td');
+          routeCell.textContent = '(' + entry.line + ')';
+
+          const destCell = document.createElement('td');
+          destCell.textContent = entry.terminal;
+
+          const etaCell = document.createElement('td');
+          etaCell.textContent = entry.scheduled;
+
+          const statusCell = document.createElement('td');
+          statusCell.textContent = entry.status;
+
+          // Apply background/text color to all cells
+          [routeCell, destCell, etaCell, statusCell].forEach(cell => {
+            cell.style.backgroundColor = colorInfo.bg;
+            cell.style.color = colorInfo.text;
+          });
+
+          row.append(routeCell, destCell, etaCell, statusCell);
+          tbody.appendChild(row);
+        });
+      } catch (err) {
+        console.error('Error fetching arrivals:', err);
+      }
+    }
+
+    fetchArrivals();
+    setInterval(fetchArrivals, 30000);
+  </script>
+</body>
+</html>
+  `);
+});
+
+// Start the server
+const port = process.env.PORT || 8080;
+app.listen(port, () => {
+  console.log('Server running on port', port);
+});

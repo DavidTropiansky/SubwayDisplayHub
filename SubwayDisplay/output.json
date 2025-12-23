@@ -1,0 +1,377 @@
+{
+    "station_id": "R09",
+    "timestamp": 1765591325,
+    "arrivals": [
+        {
+            "route_id": "7",
+            "arrival_time": 1,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 2,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 3,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 4,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Whitehall St-South Ferry",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 5,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 6,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Coney Island-Stillwell Av",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 6,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 6,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 9,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 9,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 12,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 13,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Whitehall St-South Ferry",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 16,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7X",
+            "arrival_time": 16,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 17,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 19,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 20,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Coney Island-Stillwell Av",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 23,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Whitehall St-South Ferry",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7X",
+            "arrival_time": 23,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 23,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 25,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 26,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 26,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 28,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 30,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Coney Island-Stillwell Av",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7X",
+            "arrival_time": 30,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 33,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Whitehall St-South Ferry",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 33,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 33,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7X",
+            "arrival_time": 37,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 38,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 38,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 40,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 40,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 43,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Coney Island-Stillwell Av",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 43,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7X",
+            "arrival_time": 44,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 48,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 48,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 50,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 50,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7",
+            "arrival_time": 53,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "34 St-Hudson Yards",
+            "service_status": "DELAYS"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 56,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Coney Island-Stillwell Av",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 60,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 61,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 72,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 74,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "W",
+            "arrival_time": 81,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 86,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 98,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 110,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "N",
+            "arrival_time": 123,
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Astoria-Ditmars Blvd",
+            "service_status": "Good Service"
+        },
+        {
+            "route_id": "7X",
+            "arrival_time": "0",
+            "current_stop": "Queensboro Plaza",
+            "last_stop_name": "Flushing-Main St",
+            "service_status": "Good Service"
+        }
+    ]
+}

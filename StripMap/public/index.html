@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYC Subway Strip Map View</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+            background: #0b0d10;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e9eef7;
+        }
+
+        .container {
+            background: #14181f;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .home-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #2f7bff;
+            text-decoration: none;
+            font-size: 1em;
+            padding: 10px 20px;
+            background: rgba(47, 123, 255, 0.1);
+            border: 1px solid rgba(47, 123, 255, 0.3);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .home-link:hover {
+            background: rgba(47, 123, 255, 0.2);
+            border-color: #2f7bff;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+            color: #7a8a9a;
+            font-weight: 600;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            border: 2px solid rgba(47, 123, 255, 0.3);
+            border-radius: 10px;
+            background: #0b0d10;
+            color: #e9eef7;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input::placeholder {
+            color: #7a8a9a;
+        }
+
+        .search-box input:focus {
+            background: #14181f;
+            border-color: #2f7bff;
+        }
+
+        .stations-list {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #0b0d10;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .station-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .station-item:hover {
+            background: rgba(47, 123, 255, 0.1);
+        }
+
+        .station-item:last-child {
+            border-bottom: none;
+        }
+
+        .station-name {
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .station-routes {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .route-bullet {
+            display: inline-flex;
+            height: 24px;
+            width: 24px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        .station-code {
+            font-size: 0.9em;
+            color: #7a8a9a;
+            font-family: monospace;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 30px;
+            color: #7a8a9a;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(47, 123, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(47, 123, 255, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="home-link">← Home</a>
+    <div class="container">
+        <h1>🚇 STRIP MAP VIEW</h1>
+        <div class="subtitle">Timeline-Style Display</div>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search for a station..." autocomplete="off">
+        </div>
+        
+        <div class="stations-list" id="stationsList">
+            <div class="loading">Loading stations...</div>
+        </div>
+    </div>
+
+    <script>
+        let stations = [];
+        const stationRoutesCache = {};
+
+        const routeColors = {
+            '1': { bg: '#EE352E', text: 'white' },
+            '2': { bg: '#EE352E', text: 'white' },
+            '3': { bg: '#EE352E', text: 'white' },
+            '4': { bg: '#00933C', text: 'white' },
+            '5': { bg: '#00933C', text: 'white' },
+            '6': { bg: '#00933C', text: 'white' },
+            '6X': { bg: '#00933C', text: 'white' },
+            '7': { bg: '#B933AD', text: 'white' },
+            '7X': { bg: '#B933AD', text: 'white' },
+            'A': { bg: '#0039A6', text: 'white' },
+            'C': { bg: '#0039A6', text: 'white' },
+            'E': { bg: '#0039A6', text: 'white' },
+            'B': { bg: '#FF6319', text: 'white' },
+            'D': { bg: '#FF6319', text: 'white' },
+            'F': { bg: '#FF6319', text: 'white' },
+            'FX': { bg: '#FF6319', text: 'white' },
+            'M': { bg: '#FF6319', text: 'white' },
+            'G': { bg: '#6CBE45', text: 'white' },
+            'J': { bg: '#996633', text: 'white' },
+            'Z': { bg: '#996633', text: 'white' },
+            'L': { bg: '#A7A9AC', text: 'white' },
+            'N': { bg: '#FCCC0A', text: 'black' },
+            'Q': { bg: '#FCCC0A', text: 'black' },
+            'R': { bg: '#FCCC0A', text: 'black' },
+            'W': { bg: '#FCCC0A', text: 'black' },
+            'T': { bg: '#00ADD0', text: 'white' },
+            'GS': { bg: '#808183', text: 'white' }
+        };
+
+        async function fetchStationRoutes(stationId) {
+            if (stationRoutesCache[stationId]) {
+                return stationRoutesCache[stationId];
+            }
+            try {
+                const resp = await fetch('/api/stations/' + stationId + '/routes');
+                const routes = await resp.json();
+                stationRoutesCache[stationId] = routes;
+                return routes;
+            } catch (err) {
+                console.error('Error fetching routes for ' + stationId + ':', err);
+                return [];
+            }
+        }
+
+        function createRouteBullets(routes) {
+            return routes.map(route => {
+                const colors = routeColors[route] || { bg: '#666', text: 'white' };
+                return '<span class="route-bullet" style="background-color: ' + colors.bg + '; color: ' + colors.text + ';">' + route + '</span>';
+            }).join('');
+        }
+
+        async function loadStations() {
+            try {
+                const response = await fetch('/api/stations');
+                const data = await response.json();
+                stations = data;
+                
+                displayStations(stations);
+            } catch (error) {
+                document.getElementById('stationsList').innerHTML = 
+                    '<div class="no-results">Error loading stations. Please refresh the page.</div>';
+            }
+        }
+
+        function displayStations(stationsToShow) {
+            const stationsList = document.getElementById('stationsList');
+            
+            if (stationsToShow.length === 0) {
+                stationsList.innerHTML = '<div class="no-results">No stations found</div>';
+                return;
+            }
+
+            stationsList.innerHTML = '';
+            stationsToShow.forEach(station => {
+                const item = document.createElement('div');
+                item.className = 'station-item';
+                item.innerHTML = `
+                    <div style="flex: 1;">
+                        <div class="station-name">${station.name}</div>
+                        <div class="station-routes" id="routes-${station.id}">
+                            <span style="color:#7a8a9a;font-size:11px;">Loading routes...</span>
+                        </div>
+                    </div>
+                    <span class="station-code">${station.id}</span>
+                `;
+                item.onclick = () => selectStation(station.id, station.name);
+                stationsList.appendChild(item);
+
+                // Fetch and display routes
+                fetchStationRoutes(station.id).then(routes => {
+                    const el = document.getElementById('routes-' + station.id);
+                    if (el) {
+                        if (routes.length > 0) {
+                            el.innerHTML = createRouteBullets(routes);
+                        } else {
+                            el.innerHTML = '<span style="color:#7a8a9a;font-size:11px;">No active routes</span>';
+                        }
+                    }
+                });
+            });
+        }
+
+        function selectStation(stationId, stationName) {
+            window.location.href = `/stripmap/station/${stationId}`;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            if (searchTerm === '') {
+                displayStations(stations);
+                return;
+            }
+
+            const filtered = stations.filter(station => 
+                station.name.toLowerCase().includes(searchTerm) ||
+                station.id.toLowerCase().includes(searchTerm)
+            );
+            
+            displayStations(filtered);
+        });
+
+        loadStations();
+    </script>
+</body>
+</html>

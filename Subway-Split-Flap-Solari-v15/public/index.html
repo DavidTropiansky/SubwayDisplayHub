@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYC Subway Split-Flap Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: #0f0f0f;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e8d55a;
+            padding: 20px;
+        }
+
+        .home-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #e8d55a;
+            text-decoration: none;
+            font-size: 1em;
+            padding: 10px 20px;
+            background: #1a1a1a;
+            border: 2px solid #333;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            letter-spacing: 1px;
+        }
+
+        .home-link:hover {
+            background: #2a2a2a;
+            border-color: #e8d55a;
+            box-shadow: 0 0 10px rgba(232, 213, 90, 0.3);
+        }
+
+        .container {
+            background: #1a1a1a;
+            border: 6px solid #333;
+            border-radius: 4px;
+            padding: 40px;
+            box-shadow: 
+                0 0 30px rgba(0, 0, 0, 0.8),
+                inset 0 2px 4px rgba(0, 0, 0, 0.5);
+            max-width: 700px;
+            width: 100%;
+            position: relative;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #2a2a2a 100%);
+            border-radius: 4px;
+            z-index: -1;
+        }
+
+        h1 {
+            font-size: 2.8em;
+            margin-bottom: 5px;
+            text-align: center;
+            font-weight: 700;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #e8d55a;
+            text-shadow: 
+                2px 2px 4px rgba(0, 0, 0, 0.8),
+                0 0 10px rgba(232, 213, 90, 0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.3em;
+            margin-bottom: 35px;
+            color: #b8a84a;
+            font-weight: 400;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .info-panel {
+            background: #000;
+            border: 3px solid #444;
+            border-radius: 3px;
+            padding: 15px;
+            margin-bottom: 25px;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        .info-text {
+            color: #e8d55a;
+            font-size: 0.95em;
+            text-align: center;
+            letter-spacing: 1px;
+            line-height: 1.5;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 16px 20px;
+            font-size: 1.15em;
+            border: 3px solid #444;
+            border-radius: 3px;
+            background: #000;
+            color: #e8d55a;
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        .search-box input::placeholder {
+            color: #666;
+            letter-spacing: 1px;
+        }
+
+        .search-box input:focus {
+            border-color: #e8d55a;
+            box-shadow: 
+                inset 0 2px 6px rgba(0, 0, 0, 0.8),
+                0 0 10px rgba(232, 213, 90, 0.3);
+        }
+
+        .stations-list {
+            max-height: 450px;
+            overflow-y: auto;
+            background: #000;
+            border: 3px solid #444;
+            border-radius: 3px;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        .station-item {
+            padding: 16px 20px;
+            cursor: pointer;
+            border-bottom: 2px solid #222;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to right, #0a0a0a 0%, #000 100%);
+        }
+
+        .station-item:hover {
+            background: linear-gradient(to right, #1a1a1a 0%, #0f0f0f 100%);
+            border-left: 4px solid #e8d55a;
+            padding-left: 16px;
+        }
+
+        .station-item:last-child {
+            border-bottom: none;
+        }
+
+        .station-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .station-name {
+            font-size: 1.15em;
+            font-weight: 600;
+            color: #e8d55a;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .station-routes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .route-bullet {
+            display: inline-flex;
+            height: 24px;
+            width: 24px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        .station-code {
+            font-size: 1em;
+            color: #888;
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            padding: 4px 10px;
+            border-radius: 3px;
+            border: 1px solid #333;
+            letter-spacing: 1px;
+            flex-shrink: 0;
+        }
+
+        .no-results, .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.1em;
+            letter-spacing: 1px;
+        }
+
+        /* Custom scrollbar for solari aesthetic */
+        ::-webkit-scrollbar {
+            width: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+            border-left: 2px solid #222;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 3px;
+            border: 2px solid #0a0a0a;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
+        /* Decorative corner brackets */
+        .corner-bracket {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #e8d55a;
+        }
+
+        .corner-bracket.top-left {
+            top: 10px;
+            left: 10px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .corner-bracket.top-right {
+            top: 10px;
+            right: 10px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .corner-bracket.bottom-left {
+            bottom: 10px;
+            left: 10px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .corner-bracket.bottom-right {
+            bottom: 10px;
+            right: 10px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+
+            .subtitle {
+                font-size: 1.1em;
+            }
+
+            .container {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="home-link">← HOME</a>
+    <div class="container">
+        <div class="corner-bracket top-left"></div>
+        <div class="corner-bracket top-right"></div>
+        <div class="corner-bracket bottom-left"></div>
+        <div class="corner-bracket bottom-right"></div>
+
+        <h1>🚇 NYC SUBWAY</h1>
+        <div class="subtitle">Split-Flap Display</div>
+
+        <div class="info-panel">
+            <div class="info-text">Select a station to view real-time arrivals</div>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="SEARCH STATIONS..." autocomplete="off">
+        </div>
+
+        <div class="stations-list" id="stationsList">
+            <div class="loading">LOADING STATIONS...</div>
+        </div>
+    </div>
+
+    <script>
+        let stations = [];
+        let stationMap = new Map();
+        const stationRoutesCache = {};
+
+        const routeColors = {
+            '1': { bg: '#EE352E', text: 'white' },
+            '2': { bg: '#EE352E', text: 'white' },
+            '3': { bg: '#EE352E', text: 'white' },
+            '4': { bg: '#00933C', text: 'white' },
+            '5': { bg: '#00933C', text: 'white' },
+            '6': { bg: '#00933C', text: 'white' },
+            '6X': { bg: '#00933C', text: 'white' },
+            '7': { bg: '#B933AD', text: 'white' },
+            '7X': { bg: '#B933AD', text: 'white' },
+            'A': { bg: '#0039A6', text: 'white' },
+            'C': { bg: '#0039A6', text: 'white' },
+            'E': { bg: '#0039A6', text: 'white' },
+            'B': { bg: '#FF6319', text: 'white' },
+            'D': { bg: '#FF6319', text: 'white' },
+            'F': { bg: '#FF6319', text: 'white' },
+            'FX': { bg: '#FF6319', text: 'white' },
+            'M': { bg: '#FF6319', text: 'white' },
+            'G': { bg: '#6CBE45', text: 'white' },
+            'J': { bg: '#996633', text: 'white' },
+            'Z': { bg: '#996633', text: 'white' },
+            'L': { bg: '#A7A9AC', text: 'white' },
+            'N': { bg: '#FCCC0A', text: 'black' },
+            'Q': { bg: '#FCCC0A', text: 'black' },
+            'R': { bg: '#FCCC0A', text: 'black' },
+            'W': { bg: '#FCCC0A', text: 'black' },
+            'T': { bg: '#00ADD0', text: 'white' },
+            'GS': { bg: '#808183', text: 'white' }
+        };
+
+        async function fetchStationRoutes(stationId) {
+            if (stationRoutesCache[stationId]) {
+                return stationRoutesCache[stationId];
+            }
+            try {
+                const resp = await fetch('/api/stations/' + stationId + '/routes');
+                const routes = await resp.json();
+                stationRoutesCache[stationId] = routes;
+                return routes;
+            } catch (err) {
+                console.error('Error fetching routes for ' + stationId + ':', err);
+                return [];
+            }
+        }
+
+        function createRouteBullets(routes) {
+            return routes.map(route => {
+                const colors = routeColors[route] || { bg: '#666', text: 'white' };
+                return `<span class="route-bullet" style="background-color: ${colors.bg}; color: ${colors.text};">${route}</span>`;
+            }).join('');
+        }
+
+        async function loadStations() {
+            try {
+                const response = await fetch('/api/stations');
+                stations = await response.json();
+
+                stations.forEach(station => {
+                    if (!stationMap.has(station.name)) {
+                        stationMap.set(station.name, []);
+                    }
+                    stationMap.get(station.name).push(station.id);
+                });
+
+                displayStations(stations);
+            } catch (error) {
+                document.getElementById('stationsList').innerHTML = 
+                    '<div class="no-results">ERROR LOADING STATIONS</div>';
+            }
+        }
+
+        function displayStations(stationsToShow) {
+            const stationsList = document.getElementById('stationsList');
+
+            if (stationsToShow.length === 0) {
+                stationsList.innerHTML = '<div class="no-results">NO STATIONS FOUND</div>';
+                return;
+            }
+
+            const uniqueStations = new Map();
+            stationsToShow.forEach(station => {
+                if (!uniqueStations.has(station.name)) {
+                    uniqueStations.set(station.name, station);
+                }
+            });
+
+            stationsList.innerHTML = '';
+            uniqueStations.forEach((station, name) => {
+                const codes = stationMap.get(name).join(', ');
+                const item = document.createElement('div');
+                item.className = 'station-item';
+                item.innerHTML = `
+                    <div class="station-info">
+                        <div class="station-name">${name}</div>
+                        <div class="station-routes" id="routes-${station.id}">
+                            <span style="color:#666;font-size:11px;">Loading routes...</span>
+                        </div>
+                    </div>
+                    <span class="station-code">${station.id}</span>
+                `;
+                item.onclick = () => selectStation(station.id, name);
+                stationsList.appendChild(item);
+
+                // Fetch and display routes
+                fetchStationRoutes(station.id).then(routes => {
+                    const el = document.getElementById('routes-' + station.id);
+                    if (el) {
+                        if (routes.length > 0) {
+                            el.innerHTML = createRouteBullets(routes);
+                        } else {
+                            el.innerHTML = '<span style="color:#666;font-size:11px;">No active routes</span>';
+                        }
+                    }
+                });
+            });
+        }
+
+        function selectStation(stationCode, stationName) {
+            window.location.href = `/solari/station/${stationCode}`;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+
+            if (searchTerm === '') {
+                displayStations(stations);
+                return;
+            }
+
+            const filtered = stations.filter(station => 
+                station.name.toLowerCase().includes(searchTerm) ||
+                station.id.toLowerCase().includes(searchTerm)
+            );
+
+            displayStations(filtered);
+        });
+
+        loadStations();
+    </script>
+</body>
+</html>

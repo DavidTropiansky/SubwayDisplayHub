@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Split Flap</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="plugins/arrivals/custom.css">
+    <style>
+        #header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background-color: black;
+            border-bottom: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            box-sizing: border-box;
+            z-index: 999;
+        }
+
+        #weather-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            width: 150px;
+            text-align: left;
+        }
+
+        #station-header {
+            flex: 1;
+            text-align: center;
+            margin: 0;
+        }
+
+        #station-header h1 {
+            margin: 0;
+            font-size: 28px;
+            color: white;
+            text-decoration: overline;
+        }
+
+        #route-badges {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 5px;
+            flex-wrap: wrap;
+        }
+
+        .route-badge {
+            display: inline-flex;
+            height: 28px;
+            width: 28px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            color: white;
+        }
+
+        #time-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            width: 150px;
+            text-align: right;
+        }
+
+        #back-link {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: #4a90d9;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        #back-link:hover {
+            text-decoration: underline;
+        }
+
+        #fullscreen-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: transparent;
+            border: 2px solid #4a90d9;
+            color: #4a90d9;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 1000;
+        }
+
+        #fullscreen-btn:hover {
+            background: #4a90d9;
+            color: white;
+        }
+
+        #sound-toggle {
+            position: fixed;
+            bottom: 60px;
+            right: 20px;
+            background: transparent;
+            border: 2px solid #4a90d9;
+            color: #4a90d9;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 1000;
+        }
+
+        #sound-toggle:hover {
+            background: #4a90d9;
+            color: white;
+        }
+
+        #sound-toggle.active {
+            background: #4a90d9;
+            color: white;
+        }
+
+        #back-link.hidden,
+        #fullscreen-btn.hidden,
+        #sound-toggle.hidden {
+            display: none;
+        }
+
+        body {
+            padding-top: 120px;
+        }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <div id="header">
+        <div id="weather-display">Loading weather...</div>
+        <div id="station-header">
+            <h1 id="station-title">Loading...</h1>
+            <div id="route-badges"></div>
+        </div>
+        <div id="time-display"></div>
+    </div>
+
+    <!-- BACK BUTTON -->
+    <a href="/solari" id="back-link">&lt; Back to Stations</a>
+
+    <!-- SOUND TOGGLE BUTTON -->
+    <button id="sound-toggle">🔇 Sound Off</button>
+
+    <!-- FULLSCREEN BUTTON -->
+    <button id="fullscreen-btn">Fullscreen</button>
+
+    <!-- CONTAINER -->
+    <div id="board" class="chartContainer splitflap">
+
+        <!-- Header: 30px/char, 15px/separator, 120px/logo -->
+        <div class="header" style="width:120px;margin-left:0px;">Route</div>
+        <div class="header" style="width:360px;margin-left:30px;text-align:left;">Destination</div>
+        <div class="header" style="width:320px;margin-left:301px;">ETA (min)</div>
+        <div class="header" style="width:270px;margin-left:80px;text-align:left;">Status</div>
+
+        <!-- rows will be placed here dynamically from #row_template -->
+    </div>
+    <!-- END CONTAINER -->
+
+    <!-- ROW TEMPLATE -->
+    <script type="text/template" id="row_template">
+        <div class="row">
+            <div class="group line"> <!-- train line -->
+                <div class="image"><span></span></div>
+            </div>
+
+            <div class="group terminal"> <!-- city -->
+                <!-- Repeat full divs as needed -->
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+            </div>
+
+            <div class="group scheduled"> <!-- scheduled -->
+              <div class="number"><span></span></div>
+              <div class="number"><span></span></div>
+              <div class="number"><span></span></div>
+            </div>
+
+            <div class="group remarks"> <!-- remarks -->
+                <!-- Repeat full divs as needed -->
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+                <div class="full"><span></span></div>
+            </div>
+
+            <div class="group status"> <!-- lights -->
+                <div class="sA"></div>
+                <div class="sB"></div>
+            </div>
+        </div>
+    </script>
+    <!-- END ROW TEMPLATE -->
+
+    <!-- JS LIBRARIES -->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.9.1/underscore-min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/backbone.js/1.3.3/backbone-min.js"></script>
+    <script type="text/javascript" src="js/split-flap.js"></script>
+    <script type="text/javascript" src="plugins/arrivals/custom.js"></script>
+
+    <!-- CUSTOMIZATION OPTIONS AND SCRIPT INITIALIZATION -->
+    <script type="text/javascript">
+        const routeColors = {
+            '1': '#EE352E', '2': '#EE352E', '3': '#EE352E', '4': '#00933C', '5': '#00933C',
+            '6': '#00933C', '6X': '#00933C', '7': '#B933AD', '7X': '#B933AD', 'A': '#0039A6',
+            'C': '#0039A6', 'E': '#0039A6', 'B': '#FF6319', 'D': '#FF6319', 'F': '#FF6319',
+            'FX': '#FF6319', 'M': '#FF6319', 'G': '#6CBE45', 'J': '#996633', 'Z': '#996633',
+            'L': '#A7A9AC', 'N': '#FCCC0A', 'Q': '#FCCC0A', 'R': '#FCCC0A', 'W': '#FCCC0A',
+            'T': '#00ADD0', 'GS': '#808183'
+        };
+
+        sf.options = {
+            plugin: 'arrivals',
+            container: $('#board'),
+            template: $('#row_template'),
+            numRows: 14,
+            sort: 'scheduled',
+            order: 'asc',
+            maxResults: 14,
+            pageInterval: 20000,
+            stagger: 300
+        };
+
+        $(document).ready(function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const stationCode = urlParams.get('station') || 'R20';
+
+            window.selectedStation = stationCode;
+
+            // Update time display
+            function updateTime() {
+                const now = new Date();
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+                const timeString = `${hours}:${minutes} ${ampm}`;
+                $('#time-display').text(timeString);
+            }
+            updateTime();
+            setInterval(updateTime, 60000);
+
+            // Load routes
+            async function loadRoutes() {
+                try {
+                    const resp = await fetch(`/api/stations/${stationCode}/routes`);
+                    const routes = await resp.json();
+                    const badgesHtml = routes.map(route => {
+                        const bg = routeColors[route] || '#666666';
+                        const textColor = route === 'N' || route === 'Q' || route === 'R' || route === 'W' ? 'black' : 'white';
+                        return `<div class="route-badge" style="background-color: ${bg}; color: ${textColor};">${route}</div>`;
+                    }).join('');
+                    $('#route-badges').html(badgesHtml);
+                } catch (err) {
+                    console.error('Error loading routes:', err);
+                }
+            }
+
+            // Load station name
+            async function loadStationName() {
+                try {
+                    const resp = await fetch(`/api/stations/${stationCode}/arrivals`);
+                    const data = await resp.json();
+                    $('#station-title').text(data.stationName || stationCode);
+                } catch (err) {
+                    console.error('Error loading station name:', err);
+                    $('#station-title').text(stationCode);
+                }
+            }
+
+            // Fetch weather
+            async function fetchWeather() {
+                try {
+                    const lat = 40.7128;
+                    const lon = -74.0060;
+                    const pointResp = await fetch(`https://api.weather.gov/points/${lat},${lon}`);
+                    const pointData = await pointResp.json();
+                    const forecastUrl = pointData.properties.forecast;
+                    const obsStationsUrl = pointData.properties.observationStations;
+
+                    const forecastResp = await fetch(forecastUrl);
+                    const forecastData = await forecastResp.json();
+                    const stationsResp = await fetch(obsStationsUrl);
+                    const stationsData = await stationsResp.json();
+                    const stnId = stationsData.features[0].properties.stationIdentifier;
+                    const obsResp = await fetch(`https://api.weather.gov/stations/${stnId}/observations/latest`);
+                    const obsData = await obsResp.json();
+
+                    const temp = obsData.properties.temperature.value;
+                    const tempF = temp ? Math.round(temp * 9/5 + 32) : 'N/A';
+                    const condition = obsData.properties.textDescription || 'Unknown';
+
+                    let emoji = '🌤';
+                    if (condition.toLowerCase().includes('sunny') || condition.toLowerCase().includes('clear')) emoji = '☀';
+                    else if (condition.toLowerCase().includes('cloudy')) emoji = '☁';
+                    else if (condition.toLowerCase().includes('rain')) emoji = '🌧';
+                    else if (condition.toLowerCase().includes('snow')) emoji = '🌨';
+
+                    $('#weather-display').html(`${emoji} ${tempF}°F`);
+                } catch (err) {
+                    console.error('Error fetching weather:', err);
+                    $('#weather-display').text('Weather unavailable');
+                }
+            }
+
+            // Fullscreen functionality
+            $('#fullscreen-btn').click(function() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => console.error('Error:', err));
+                } else {
+                    document.exitFullscreen();
+                }
+            });
+
+            // Sound functionality
+            window.splitFlapSound = {
+                audio: new Audio('/solari/split-flap-display-sound.mp3'),
+                enabled: false,
+                playCount: 0,
+
+                init: function() {
+                    // Preload audio
+                    this.audio.load();
+                    this.audio.volume = 0.2;
+                },
+
+                play: function() {
+                    if (this.enabled) {
+                        // Clone the audio to allow overlapping plays
+                        const sound = this.audio.cloneNode();
+                        sound.volume = 0.2;
+                        sound.play().catch(err => console.log('Audio play failed:', err));
+                    }
+                }
+            };
+
+            window.splitFlapSound.init();
+
+            // Sound toggle button
+            $('#sound-toggle').click(function() {
+                window.splitFlapSound.enabled = !window.splitFlapSound.enabled;
+                if (window.splitFlapSound.enabled) {
+                    $(this).html('🔊 Sound On').addClass('active');
+                } else {
+                    $(this).html('🔇 Sound Off').removeClass('active');
+                }
+            });
+
+            // Hide buttons when entering fullscreen, show when exiting
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    $('#back-link').addClass('hidden');
+                    $('#fullscreen-btn').addClass('hidden');
+                    $('#sound-toggle').addClass('hidden');
+                } else {
+                    $('#back-link').removeClass('hidden');
+                    $('#fullscreen-btn').removeClass('hidden');
+                    $('#sound-toggle').removeClass('hidden');
+                }
+            });
+
+            // Initialize everything
+            loadStationName();
+            loadRoutes();
+            fetchWeather();
+            setInterval(fetchWeather, 600000); // Update weather every 10 min
+
+            sf.board.init(sf.options);
+            sf.items.init(sf.options);
+            sf.items.load(sf.options);
+        });
+    </script>
+</body>
+</html>
