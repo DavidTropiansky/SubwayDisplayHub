@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Strip Map View</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+      background: #0b0d10;
+      color: #e9eef7;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    #header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #0b0d10;
+      padding: 20px;
+      z-index: 999;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    #weather-display {
+      font-size: 20px;
+      font-weight: bold;
+      color: #e9eef7;
+      min-width: 150px;
+      text-align: left;
+    }
+
+    #station-header {
+      flex: 1;
+      text-align: center;
+    }
+
+    #station-name {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 0;
+      color: #e9eef7;
+      text-decoration: overline;
+    }
+
+    .route-toggles {
+      margin: 8px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      max-height: 60px;
+      overflow-y: auto;
+    }
+
+    .route-toggle {
+      display: inline-flex;
+      height: 32px;
+      width: 32px;
+      justify-content: center;
+      align-items: center;
+      border-radius: 50%;
+      font-size: 16px;
+      font-weight: bold;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      opacity: 0.4;
+    }
+
+    .route-toggle.active {
+      opacity: 1;
+      border-color: white;
+      box-shadow: 0 0 10px rgba(255,255,255,0.5);
+    }
+
+    .route-toggle:hover {
+      opacity: 0.8;
+    }
+
+    .filter-hint {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 5px;
+    }
+
+    #time-display {
+      font-size: 20px;
+      font-weight: bold;
+      color: #e9eef7;
+      min-width: 150px;
+      text-align: right;
+    }
+
+    #back-link {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      color: #2f7bff;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 10px 20px;
+      background: rgba(47, 123, 255, 0.1);
+      border: 1px solid rgba(47, 123, 255, 0.3);
+      border-radius: 8px;
+      transition: all 0.2s;
+      z-index: 1000;
+    }
+
+    #back-link:hover {
+      background: rgba(47, 123, 255, 0.2);
+      border-color: #2f7bff;
+    }
+
+    #fullscreen-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: transparent;
+      border: 2px solid #2f7bff;
+      color: #2f7bff;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 1000;
+    }
+
+    #fullscreen-btn:hover {
+      background: #2f7bff;
+      color: white;
+    }
+
+    .fullscreen-hide {
+      display: none !important;
+    }
+
+    body {
+      padding-top: 100px;
+    }
+
+    #routes-container {
+      max-width: 2100px;
+      margin: 0 auto;
+    }
+
+    .route-strip {
+      margin-bottom: 40px;
+      opacity: 1;
+    }
+
+    .route-strip.animating {
+      opacity: 0;
+      animation: fadeIn 0.5s ease-in forwards;
+    }
+
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      font-size: 1.2em;
+      color: #7a8a9a;
+    }
+
+    .no-arrivals {
+      text-align: center;
+      padding: 40px;
+      font-size: 1.1em;
+      color: #7a8a9a;
+      background: #14181f;
+      border-radius: 12px;
+      margin: 20px auto;
+      max-width: 600px;
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+      #station-name {
+        font-size: 24px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding-top: 80px;
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+
+      #header {
+        flex-direction: column;
+        gap: 10px;
+        padding: 15px;
+      }
+
+      #weather-display,
+      #time-display {
+        min-width: auto;
+        text-align: center;
+      }
+      
+      #station-name {
+        font-size: 20px;
+      }
+
+      #back-link,
+      #fullscreen-btn {
+        font-size: 14px;
+        padding: 8px 16px;
+      }
+
+      .route-strip {
+        margin-bottom: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <div id="weather-display">Loading weather...</div>
+    <div id="station-header">
+      <h1 id="station-name">Loading...</h1>
+      <div class="route-toggles" id="route-filters"></div>
+      <div class="filter-hint" id="filter-hint">Showing all routes - click to filter</div>
+    </div>
+    <div id="time-display"></div>
+  </div>
+
+  <a href="/stripmap" id="back-link" class="back-link">← Back to Stations</a>
+  <button id="fullscreen-btn" class="fullscreen-btn">Fullscreen</button>
+
+  <div id="routes-container">
+    <div class="loading">Loading arrivals...</div>
+  </div>
+
+  <script>
+    const pathParts = window.location.pathname.split('/');
+    const stationId = pathParts[pathParts.length - 1];
+
+    const routeColors = {
+      '1': '#EE352E', '2': '#EE352E', '3': '#EE352E',
+      '4': '#00933C', '5': '#00933C', '6': '#00933C', '6X': '#00933C',
+      '7': '#B933AD', '7X': '#B933AD',
+      'A': '#0039A6', 'C': '#0039A6', 'E': '#0039A6',
+      'B': '#FF6319', 'D': '#FF6319', 'F': '#FF6319', 'FX': '#FF6319', 'M': '#FF6319',
+      'G': '#6CBE45',
+      'J': '#996633', 'Z': '#996633',
+      'L': '#A7A9AC',
+      'N': '#FCCC0A', 'Q': '#FCCC0A', 'R': '#FCCC0A', 'W': '#FCCC0A',
+      'T': '#00ADD0',
+      'GS': '#808183'
+    };
+
+    const routeNames = {
+      '1': '7 Av Local', '2': '7 Av Express', '3': '7 Av Express',
+      '4': 'Lexington Av Express', '5': 'Lexington Av Express', '6': 'Lexington Av Local', '6X': 'Lexington Av Express',
+      '7': 'Flushing Local', '7X': 'Flushing Express',
+      'A': '8 Av Express', 'C': '8 Av Local', 'E': '8 Av Local',
+      'B': '6 Av Express', 'D': '6 Av Express', 'F': '6 Av Local', 'FX': '6 Av Express', 'M': '6 Av Local',
+      'G': 'Brooklyn-Queens Crosstown',
+      'J': 'Nassau St Express', 'Z': 'Nassau St Express',
+      'L': '14 St-Canarsie Local',
+      'N': 'Broadway Local', 'Q': 'Broadway Express', 'R': 'Broadway Local', 'W': 'Broadway Local',
+      'T': '42 St Shuttle',
+      'GS': 'Grand Central Shuttle'
+    };
+
+    function getTextColor(routeId) {
+      return ['N', 'Q', 'R', 'W'].includes(routeId) ? '#000000' : '#ffffff';
+    }
+
+    function calculateArrivalPositions(count) {
+      // Start position and end position for the track
+      const startX = 560;
+      const endX = 1940;
+      const availableSpace = endX - startX;
+      
+      // Spread arrivals evenly across available space
+      const spacing = availableSpace / (count + 0.5);
+      
+      const positions = [];
+      for (let i = 0; i < count; i++) {
+        positions.push(startX + (i * spacing));
+      }
+      
+      return positions;
+    }
+
+    function createStripMapSVG(routeId, arrivals, serviceStatus) {
+      const color = routeColors[routeId] || '#2f7bff';
+      const textColor = getTextColor(routeId);
+      const routeName = routeNames[routeId] || routeId + ' Line';
+      
+      // Always show up to 7 arrivals
+      const displayArrivals = arrivals.slice(0, 7);
+      
+      if (displayArrivals.length === 0) {
+        return ''; // Don't show routes with no arrivals
+      }
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      svg.setAttribute('width', '2000');
+      svg.setAttribute('height', '720');
+      svg.setAttribute('viewBox', '0 0 2000 720');
+
+      // Background
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('fill', '#0b0d10');
+      bg.setAttribute('x', '0');
+      bg.setAttribute('y', '0');
+      bg.setAttribute('width', '2000');
+      bg.setAttribute('height', '720');
+      bg.setAttribute('rx', '22');
+      svg.appendChild(bg);
+
+      // Main group (moved down with extra padding for rotated text)
+      const mainGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      mainGroup.setAttribute('transform', 'translate(0,290)');
+
+      // Left header block
+      const headerGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      headerGroup.setAttribute('transform', 'translate(40,70)');
+
+      // Route bullet circle
+      const bulletCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      bulletCircle.setAttribute('fill', color);
+      bulletCircle.setAttribute('cx', '80');
+      bulletCircle.setAttribute('cy', '80');
+      bulletCircle.setAttribute('r', '67');
+      headerGroup.appendChild(bulletCircle);
+
+      // Route bullet text
+      const bulletText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      bulletText.setAttribute('fill', textColor);
+      bulletText.setAttribute('x', '80');
+      bulletText.setAttribute('y', '104');
+      bulletText.setAttribute('text-anchor', 'middle');
+      bulletText.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+      bulletText.setAttribute('font-size', '67');
+      bulletText.setAttribute('font-weight', '700');
+      bulletText.textContent = routeId;
+      headerGroup.appendChild(bulletText);
+
+      // Route description
+      const routeDesc = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      routeDesc.setAttribute('fill', '#e9eef7');
+      routeDesc.setAttribute('x', '0');
+      routeDesc.setAttribute('y', '175');
+      routeDesc.setAttribute('text-anchor', 'start');
+      routeDesc.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+      routeDesc.setAttribute('font-size', '28');
+      routeDesc.setAttribute('font-weight', '800');
+      routeDesc.textContent = routeName;
+      headerGroup.appendChild(routeDesc);
+
+      // Service status
+      const statusGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      statusGroup.setAttribute('transform', 'translate(0,205)');
+
+      const statusDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      statusDot.setAttribute('fill', serviceStatus === 'Good Service' ? '#00933c' : '#EE352E');
+      statusDot.setAttribute('cx', '7');
+      statusDot.setAttribute('cy', '0');
+      statusDot.setAttribute('r', '7');
+      statusGroup.appendChild(statusDot);
+
+      const statusText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      statusText.setAttribute('fill', '#e9eef7');
+      statusText.setAttribute('x', '22');
+      statusText.setAttribute('y', '6');
+      statusText.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+      statusText.setAttribute('font-size', '18');
+      statusText.setAttribute('font-weight', '800');
+      statusText.setAttribute('letter-spacing', '0.08em');
+      statusText.textContent = serviceStatus.toUpperCase();
+      statusGroup.appendChild(statusText);
+
+      headerGroup.appendChild(statusGroup);
+      mainGroup.appendChild(headerGroup);
+
+      // Track line
+      const track = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      track.setAttribute('stroke', color);
+      track.setAttribute('stroke-width', '18');
+      track.setAttribute('fill', 'none');
+      track.setAttribute('stroke-linecap', 'round');
+      track.setAttribute('d', 'M 520 245 L 1940 245');
+      mainGroup.appendChild(track);
+
+      // Calculate dynamic positions for arrivals based on count
+      const positions = calculateArrivalPositions(displayArrivals.length);
+
+      // Draw arrivals
+      displayArrivals.forEach((arrival, index) => {
+        const x = positions[index];
+        const minutes = arrival.scheduled;
+        const destination = arrival.terminal;
+
+        // Minute circle (filled)
+        const mCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        mCircle.setAttribute('fill', '#14181f');
+        mCircle.setAttribute('stroke', 'rgba(255,255,255,0.10)');
+        mCircle.setAttribute('stroke-width', '1');
+        mCircle.setAttribute('cx', x);
+        mCircle.setAttribute('cy', '245');
+        mCircle.setAttribute('r', '20');
+        mainGroup.appendChild(mCircle);
+
+        // Minute number
+        const mNum = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        mNum.setAttribute('fill', '#ffffff');
+        mNum.setAttribute('x', x);
+        mNum.setAttribute('y', '245');
+        mNum.setAttribute('text-anchor', 'middle');
+        mNum.setAttribute('dominant-baseline', 'middle');
+        mNum.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+        mNum.setAttribute('font-size', '20');
+        mNum.setAttribute('font-weight', '900');
+        mNum.textContent = minutes;
+        mainGroup.appendChild(mNum);
+
+        // "min" word - uses text color (white or black) based on route
+        const minWord = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        minWord.setAttribute('fill', textColor);
+        minWord.setAttribute('x', x + 30 + (minutes >= 10 ? 10 : 0));
+        minWord.setAttribute('y', '245');
+        minWord.setAttribute('dominant-baseline', 'middle');
+        minWord.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+        minWord.setAttribute('font-size', '24');
+        minWord.setAttribute('font-weight', '700');
+        minWord.textContent = 'min';
+        mainGroup.appendChild(minWord);
+
+        // Destination text (rotated) - special handling for first arrival
+        const destGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        destGroup.setAttribute('transform', `rotate(-35 ${x} 200)`);
+
+        if (index === 0) {
+          // NEXT TRAIN label
+          const nextText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          nextText.setAttribute('fill', color);
+          nextText.setAttribute('x', x + 20);
+          nextText.setAttribute('y', '75');
+          nextText.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+          nextText.setAttribute('font-size', '46');
+          nextText.setAttribute('font-weight', '500');
+          nextText.setAttribute('letter-spacing', '0.06em');
+          nextText.textContent = 'NEXT TRAIN';
+          destGroup.appendChild(nextText);
+
+          // Pill background
+          const pill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          pill.setAttribute('fill', color);
+          pill.setAttribute('x', x);
+          pill.setAttribute('y', '105');
+          pill.setAttribute('width', '560');
+          pill.setAttribute('height', '82');
+          pill.setAttribute('rx', '41');
+          destGroup.appendChild(pill);
+
+          // Pill text
+          const pillText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          pillText.setAttribute('fill', textColor);
+          pillText.setAttribute('x', x + 20);
+          pillText.setAttribute('y', '160');
+          pillText.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+          pillText.setAttribute('font-size', '30');
+          pillText.setAttribute('font-weight', '600');
+          pillText.textContent = destination;
+          destGroup.appendChild(pillText);
+        } else {
+          // Regular destination text
+          const dest = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          dest.setAttribute('fill', '#ffffff');
+          dest.setAttribute('x', x);
+          dest.setAttribute('y', '200');
+          dest.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
+          dest.setAttribute('font-size', '30');
+          dest.setAttribute('font-weight', '600');
+          dest.textContent = destination;
+          destGroup.appendChild(dest);
+        }
+
+        mainGroup.appendChild(destGroup);
+      });
+
+      svg.appendChild(mainGroup);
+      return svg.outerHTML;
+    }
+
+    let selectedRoutes = new Set();
+    let allArrivalsData = null;
+    let hasStartedFiltering = false;
+    let isFirstLoad = true;
+    let maxArrivals = 5; // Default, will be calculated dynamically
+
+    function updateFilterHint() {
+      const hint = document.getElementById('filter-hint');
+      if (!allArrivalsData) return;
+      
+      const totalRoutes = allArrivalsData.sortedRoutes.length;
+      
+      if (selectedRoutes.size === totalRoutes) {
+        hint.innerText = 'Showing all routes - click to filter';
+      } else if (selectedRoutes.size === 0) {
+        hint.innerText = 'No routes selected - click routes to show';
+      } else {
+        hint.innerText = 'Filtered to ' + selectedRoutes.size + ' route(s)';
+      }
+    }
+
+    function createRouteFilter(routeId, color, textColor) {
+      const badge = document.createElement('div');
+      badge.className = 'route-toggle active';
+      badge.dataset.route = routeId;
+      badge.style.cssText = `
+        background-color: ${color};
+        color: ${textColor};
+      `;
+      badge.textContent = routeId;
+      return badge;
+    }
+
+    function toggleRouteFilter(routeId) {
+      if (!allArrivalsData) return;
+
+      if (!hasStartedFiltering) {
+        selectedRoutes.clear();
+        selectedRoutes.add(routeId);
+        hasStartedFiltering = true;
+
+        document.querySelectorAll('.route-toggle').forEach(btn => {
+          if (btn.dataset.route === routeId) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      } else {
+        if (selectedRoutes.has(routeId)) {
+          selectedRoutes.delete(routeId);
+          const btn = document.querySelector(`.route-toggle[data-route="${routeId}"]`);
+          if (btn) btn.classList.remove('active');
+        } else {
+          selectedRoutes.add(routeId);
+          const btn = document.querySelector(`.route-toggle[data-route="${routeId}"]`);
+          if (btn) btn.classList.add('active');
+        }
+
+        if (selectedRoutes.size === 0) {
+          selectedRoutes = new Set(allArrivalsData.sortedRoutes);
+          hasStartedFiltering = false;
+          document.querySelectorAll('.route-toggle').forEach(btn => {
+            btn.classList.add('active');
+          });
+        }
+
+        if (selectedRoutes.size === allArrivalsData.sortedRoutes.length) {
+          hasStartedFiltering = false;
+        }
+      }
+
+      updateFilterHint();
+      displayFilteredArrivals();
+    }
+
+    function displayFilteredArrivals() {
+      if (!allArrivalsData) return;
+
+      const container = document.getElementById('routes-container');
+      const filterContainer = document.getElementById('route-filters');
+      
+      // Update filter buttons
+      filterContainer.querySelectorAll('.route-bullet').forEach(badge => {
+        const routeId = badge.textContent;
+        badge.style.opacity = selectedRoutes.size === 0 || selectedRoutes.has(routeId) ? '1' : '0.3';
+      });
+
+      // Filter and display routes
+      const routesToShow = selectedRoutes.size === 0 
+        ? Object.keys(allArrivalsData.routeGroups)
+        : Array.from(selectedRoutes);
+
+      if (routesToShow.length === 0) {
+        container.innerHTML = '<div class="no-arrivals">No routes match the selected filters</div>';
+        return;
+      }
+
+      routesToShow.sort();
+
+      // Remove loading message on first real data load
+      const loadingDiv = container.querySelector('.loading');
+      if (loadingDiv) {
+        loadingDiv.remove();
+      }
+
+      // Get existing route strips and create a map
+      const existingStrips = new Map();
+      const existingElements = Array.from(container.querySelectorAll('.route-strip'));
+      existingElements.forEach(strip => {
+        const routeId = strip.dataset.routeId;
+        if (routeId) {
+          existingStrips.set(routeId, strip);
+        }
+      });
+
+      // Track which strips to keep
+      const stripsToKeep = new Set();
+
+      routesToShow.forEach((routeId, index) => {
+        const arrivals = allArrivalsData.routeGroups[routeId];
+        if (!arrivals) return;
+        
+        const serviceStatus = arrivals[0]?.status || 'Good Service';
+        const svgHtml = createStripMapSVG(routeId, arrivals, serviceStatus);
+        
+        if (svgHtml) {
+          let div = existingStrips.get(routeId);
+          
+          if (div) {
+            // Update existing element in place (no removal from DOM)
+            div.innerHTML = svgHtml;
+            stripsToKeep.add(div);
+          } else {
+            // Create new element with animation only for first appearance
+            div = document.createElement('div');
+            div.className = 'route-strip animating';
+            div.dataset.routeId = routeId;
+            div.style.animationDelay = `${index * 0.1}s`;
+            div.innerHTML = svgHtml;
+            container.appendChild(div);
+            stripsToKeep.add(div);
+            
+            // Remove animating class after animation completes
+            setTimeout(() => {
+              div.classList.remove('animating');
+              div.style.animationDelay = '';
+            }, 500 + (index * 100));
+          }
+        }
+      });
+
+      // Remove strips that are no longer needed
+      existingElements.forEach(strip => {
+        if (!stripsToKeep.has(strip)) {
+          strip.remove();
+        }
+      });
+
+      // Reorder elements if needed
+      const currentOrder = Array.from(container.querySelectorAll('.route-strip'));
+      const desiredOrder = routesToShow.map(routeId => 
+        currentOrder.find(strip => strip.dataset.routeId === routeId)
+      ).filter(Boolean);
+
+      // Only reorder if necessary
+      let needsReorder = false;
+      for (let i = 0; i < desiredOrder.length; i++) {
+        if (currentOrder[i] !== desiredOrder[i]) {
+          needsReorder = true;
+          break;
+        }
+      }
+
+      if (needsReorder) {
+        desiredOrder.forEach(strip => container.appendChild(strip));
+      }
+    }
+
+    async function loadArrivals() {
+      try {
+        // Fetch station arrivals - request more to ensure we get enough per route
+        const resp = await fetch(`/api/stations/${stationId}/arrivals?max=200`);
+        const data = await resp.json();
+
+        document.getElementById('station-name').textContent = data.stationName || stationId;
+        document.title = `${data.stationName || stationId} - Strip Map View`;
+
+        if (!data.data || data.data.length === 0) {
+          document.getElementById('routes-container').innerHTML = 
+            '<div class="no-arrivals">No upcoming arrivals at this station</div>';
+          return;
+        }
+
+        // Sort all arrivals by time first to ensure proper ordering
+        data.data.sort((a, b) => a.scheduled - b.scheduled);
+
+        // Group arrivals by route
+        const routeGroups = {};
+        data.data.forEach(arrival => {
+          if (!routeGroups[arrival.line]) {
+            routeGroups[arrival.line] = [];
+          }
+          routeGroups[arrival.line].push(arrival);
+        });
+
+        // Sort routes alphabetically
+        const sortedRoutes = Object.keys(routeGroups).sort();
+
+        // Store data globally
+        allArrivalsData = { routeGroups, sortedRoutes };
+
+        // Only initialize/rebuild filters on first load or if routes have changed
+        if (isFirstLoad) {
+          // Initialize all routes as selected on first load
+          selectedRoutes = new Set(sortedRoutes);
+          hasStartedFiltering = false;
+
+          // Create route filter buttons
+          const filterContainer = document.getElementById('route-filters');
+          filterContainer.innerHTML = '';
+          sortedRoutes.forEach(routeId => {
+            const color = routeColors[routeId] || '#2f7bff';
+            const textColor = getTextColor(routeId);
+            const badge = createRouteFilter(routeId, color, textColor);
+            filterContainer.appendChild(badge);
+          });
+
+          // Add click handler to filter container (only once)
+          filterContainer.addEventListener('click', function(e) {
+            const toggle = e.target.closest('.route-toggle');
+            if (!toggle) return;
+            const route = toggle.dataset.route;
+            toggleRouteFilter(route);
+          });
+
+          isFirstLoad = false;
+        } else {
+          // On subsequent loads, preserve filter selection
+          // Remove routes that no longer exist from selectedRoutes
+          const currentSelectedRoutes = new Set();
+          for (const route of selectedRoutes) {
+            if (sortedRoutes.includes(route)) {
+              currentSelectedRoutes.add(route);
+            }
+          }
+          selectedRoutes = currentSelectedRoutes;
+
+          // If all routes were deselected (shouldn't happen, but just in case)
+          if (selectedRoutes.size === 0) {
+            selectedRoutes = new Set(sortedRoutes);
+            hasStartedFiltering = false;
+          }
+
+          // Update filter button states to match current selection
+          document.querySelectorAll('.route-toggle').forEach(btn => {
+            const route = btn.dataset.route;
+            if (selectedRoutes.has(route) || selectedRoutes.size === sortedRoutes.length) {
+              btn.classList.add('active');
+            } else {
+              btn.classList.remove('active');
+            }
+          });
+        }
+
+        // Display routes with current filter
+        updateFilterHint();
+        displayFilteredArrivals();
+
+      } catch (err) {
+        console.error('Error fetching arrivals:', err);
+        document.getElementById('routes-container').innerHTML = 
+          '<div class="no-arrivals">Error loading arrivals. Please try again.</div>';
+      }
+    }
+
+    // Update time display
+    function updateTime() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+      const timeStr = hours + ':' + minutesStr + ' ' + ampm;
+      document.getElementById('time-display').innerText = timeStr;
+    }
+    updateTime();
+    setInterval(updateTime, 60000);
+
+    // Weather condition to emoji mapping with colors
+    function getWeatherEmoji(condition) {
+      const conditionLower = condition.toLowerCase();
+      if (conditionLower.includes('sunny') || conditionLower.includes('clear')) {
+        return { emoji: '☀', color: '#FFD700' };
+      }
+      if (conditionLower.includes('partly cloudy') || conditionLower.includes('mostly sunny')) {
+        return { emoji: '⛅', color: '#FDB813' };
+      }
+      if (conditionLower.includes('cloudy') || conditionLower.includes('overcast')) {
+        return { emoji: '☁', color: '#B0B0B0' };
+      }
+      if (conditionLower.includes('rain') && !conditionLower.includes('thunder')) {
+        return { emoji: '🌧', color: '#4682B4' };
+      }
+      if (conditionLower.includes('drizzle') || conditionLower.includes('sprinkle')) {
+        return { emoji: '🌦', color: '#6495ED' };
+      }
+      if (conditionLower.includes('thunder') || conditionLower.includes('storm')) {
+        return { emoji: '⛈', color: '#8B008B' };
+      }
+      if (conditionLower.includes('snow') || conditionLower.includes('flurr')) {
+        return { emoji: '🌨', color: '#E0FFFF' };
+      }
+      if (conditionLower.includes('sleet') || conditionLower.includes('freezing')) {
+        return { emoji: '🌧', color: '#87CEEB' };
+      }
+      if (conditionLower.includes('fog') || conditionLower.includes('mist') || conditionLower.includes('haze')) {
+        return { emoji: '🌫', color: '#DCDCDC' };
+      }
+      if (conditionLower.includes('wind') || conditionLower.includes('breezy')) {
+        return { emoji: '💨', color: '#87CEEB' };
+      }
+      if (conditionLower.includes('hot')) {
+        return { emoji: '🌡', color: '#FF4500' };
+      }
+      if (conditionLower.includes('cold')) {
+        return { emoji: '❄', color: '#00CED1' };
+      }
+      return { emoji: '🌤', color: '#FFA500' };
+    }
+
+    // Fetch weather data
+    async function fetchWeather() {
+      try {
+        const lat = 40.7128;
+        const lon = -74.0060;
+        const pointResp = await fetch('https://api.weather.gov/points/' + lat + ',' + lon);
+        const pointData = await pointResp.json();
+        const forecastUrl = pointData.properties.forecast;
+        const observationStationsUrl = pointData.properties.observationStations;
+
+        const forecastResp = await fetch(forecastUrl);
+        const forecastData = await forecastResp.json();
+        const currentPeriod = forecastData.properties.periods[0];
+
+        const stationsResp = await fetch(observationStationsUrl);
+        const stationsData = await stationsResp.json();
+        const stationIdWeather = stationsData.features[0].properties.stationIdentifier;
+
+        const obsResp = await fetch('https://api.weather.gov/stations/' + stationIdWeather + '/observations/latest');
+        const obsData = await obsResp.json();
+
+        const temp = obsData.properties.temperature.value;
+        const tempF = temp ? Math.round(temp * 9/5 + 32) : currentPeriod.temperature;
+        const conditions = obsData.properties.textDescription || currentPeriod.shortForecast || 'Unknown';
+
+        const weatherInfo = getWeatherEmoji(conditions);
+        const weatherDisplay = document.getElementById('weather-display');
+        weatherDisplay.innerHTML = '<span style="color: ' + weatherInfo.color + ';">' + weatherInfo.emoji + '</span> ' + tempF + '°F';
+      } catch (err) {
+        console.error('Error fetching weather:', err);
+        document.getElementById('weather-display').textContent = 'Weather unavailable';
+      }
+    }
+
+    fetchWeather();
+    setInterval(fetchWeather, 600000);
+
+    // Fullscreen functionality
+    let isFullscreen = false;
+    document.getElementById('fullscreen-btn').addEventListener('click', function() {
+      const backLink = document.getElementById('back-link');
+      const filterHint = document.getElementById('filter-hint');
+      const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+      if (!isFullscreen) {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+          document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+          document.documentElement.msRequestFullscreen();
+        }
+        backLink.classList.add('fullscreen-hide');
+        filterHint.classList.add('fullscreen-hide');
+        fullscreenBtn.classList.add('fullscreen-hide');
+        isFullscreen = true;
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+        backLink.classList.remove('fullscreen-hide');
+        filterHint.classList.remove('fullscreen-hide');
+        fullscreenBtn.classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+    });
+
+    document.addEventListener('fullscreenchange', function() {
+      if (!document.fullscreenElement) {
+        const backLink = document.getElementById('back-link');
+        const filterHint = document.getElementById('filter-hint');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+        backLink.classList.remove('fullscreen-hide');
+        filterHint.classList.remove('fullscreen-hide');
+        fullscreenBtn.classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+    });
+
+    // Load arrivals initially
+    loadArrivals();
+
+    // Refresh every 30 seconds
+    setInterval(loadArrivals, 30000);
+  </script>
+</body>
+</html>
