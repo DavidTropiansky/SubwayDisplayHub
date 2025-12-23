@@ -407,21 +407,25 @@ app.get('/', (req, res) => {
       font-weight: 300;
     }
     .apps-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-      gap: 40px;
+      display: flex;
+      justify-content: center;
+      gap: 30px;
       margin-top: 40px;
+      flex-wrap: wrap;
     }
     .app-card {
       background: rgba(255, 255, 255, 0.05);
       border-radius: 20px;
-      padding: 50px 40px;
+      padding: 40px 30px;
       transition: all 0.3s ease;
       cursor: pointer;
       border: 2px solid rgba(255, 255, 255, 0.1);
       text-decoration: none;
       color: white;
       display: block;
+      flex: 1;
+      min-width: 300px;
+      max-width: 380px;
     }
     .app-card:hover {
       transform: translateY(-10px);
@@ -430,8 +434,17 @@ app.get('/', (req, res) => {
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     }
     .app-icon {
-      font-size: 4em;
       margin-bottom: 20px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .app-icon img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 10px;
     }
     .app-title {
       font-size: 2em;
@@ -454,12 +467,6 @@ app.get('/', (req, res) => {
       margin: 8px 0;
       font-size: 0.95em;
     }
-    .feature-item:before {
-      content: "✓ ";
-      color: #4a90d9;
-      font-weight: bold;
-      margin-right: 8px;
-    }
     @media (max-width: 768px) {
       .apps-container {
         grid-template-columns: 1fr;
@@ -481,7 +488,7 @@ app.get('/', (req, res) => {
     
     <div class="apps-container">
       <a href="/display" class="app-card">
-        <div class="app-icon">📊</div>
+        <div class="app-icon"><img src="/images/Modern.png" alt="SubwayDisplay"></div>
         <div class="app-title">SubwayDisplay</div>
         <div class="app-description">
           Modern table-based arrivals display with advanced features
@@ -496,7 +503,7 @@ app.get('/', (req, res) => {
       </a>
       
       <a href="/solari" class="app-card">
-        <div class="app-icon">🎰</div>
+        <div class="app-icon"><img src="/images/Solari.png" alt="SubwaySolari"></div>
         <div class="app-title">SubwaySolari</div>
         <div class="app-description">
           Classic split-flap display board with authentic animations
@@ -511,7 +518,7 @@ app.get('/', (req, res) => {
       </a>
 
       <a href="/stripmap" class="app-card">
-        <div class="app-icon">🚇</div>
+        <div class="app-icon"><img src="/images/Stripmap.png" alt="Strip Map View"></div>
         <div class="app-title">Strip Map View</div>
         <div class="app-description">
           Visual timeline display with horizontal route tracking
@@ -571,6 +578,9 @@ app.get('/stripmap/station/:stationId', (req, res) => {
 });
 
 // === STATIC FILES ===
+// Serve images from root directory
+app.use('/images', express.static(__dirname));
+
 // Serve SubwayDisplay static files
 app.use('/display', express.static(path.join(__dirname, 'SubwayDisplay', 'public')));
 
@@ -581,7 +591,7 @@ app.use('/solari', express.static(path.join(__dirname, 'Subway-Split-Flap-Solari
 app.use('/stripmap', express.static(path.join(__dirname, 'StripMap', 'public')));
 
 // Start the server
-const port = process.env.PORT || 5001;
+const port = process.env.PORT || 5000;
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚇 NYC Subway Display Hub running on port ${port}`);
   console.log(`   Landing page: http://localhost:${port}`);
