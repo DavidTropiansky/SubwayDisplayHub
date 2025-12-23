@@ -295,16 +295,23 @@
 
     function calculateArrivalPositions(count) {
       // Start position and end position for the track
-      const startX = 560;
+      const startX = 540; // Position for first arrival (at beginning of track)
+      const secondX = 700; // Position for second arrival
       const endX = 1940;
-      const availableSpace = endX - startX;
       
-      // Spread arrivals evenly across available space
-      const spacing = availableSpace / (count + 0.5);
+      if (count === 1) {
+        return [startX];
+      }
       
-      const positions = [];
-      for (let i = 0; i < count; i++) {
-        positions.push(startX + (i * spacing));
+      // First position is at the beginning
+      const positions = [startX];
+      
+      // Calculate spacing for remaining arrivals
+      const availableSpace = endX - secondX;
+      const spacing = availableSpace / (count - 1.5);
+      
+      for (let i = 1; i < count; i++) {
+        positions.push(secondX + ((i - 1) * spacing));
       }
       
       return positions;
@@ -421,14 +428,25 @@
         const minutes = arrival.scheduled;
         const destination = arrival.terminal;
 
+        // Determine size based on whether this is the first arrival
+        const isFirstArrival = index === 0;
+        const circleRadius = isFirstArrival ? 30 : 20;
+        const fontSize = isFirstArrival ? 26 : 20;
+
         // Minute circle (filled)
         const mCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         mCircle.setAttribute('fill', '#14181f');
-        mCircle.setAttribute('stroke', 'rgba(255,255,255,0.10)');
-        mCircle.setAttribute('stroke-width', '1');
+        // First arrival: prominent white outline, others: route color outline
+        if (isFirstArrival) {
+          mCircle.setAttribute('stroke', '#ffffff');
+          mCircle.setAttribute('stroke-width', '4');
+        } else {
+          mCircle.setAttribute('stroke', color);
+          mCircle.setAttribute('stroke-width', '3');
+        }
         mCircle.setAttribute('cx', x);
         mCircle.setAttribute('cy', '245');
-        mCircle.setAttribute('r', '20');
+        mCircle.setAttribute('r', circleRadius);
         mainGroup.appendChild(mCircle);
 
         // Minute number
@@ -439,7 +457,7 @@
         mNum.setAttribute('text-anchor', 'middle');
         mNum.setAttribute('dominant-baseline', 'middle');
         mNum.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
-        mNum.setAttribute('font-size', '20');
+        mNum.setAttribute('font-size', fontSize);
         mNum.setAttribute('font-weight', '900');
         mNum.textContent = minutes;
         mainGroup.appendChild(mNum);
@@ -447,11 +465,12 @@
         // "min" word - uses text color (white or black) based on route
         const minWord = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         minWord.setAttribute('fill', textColor);
-        minWord.setAttribute('x', x + 30 + (minutes >= 10 ? 10 : 0));
+        const minWordOffset = isFirstArrival ? 40 : 30;
+        minWord.setAttribute('x', x + minWordOffset + (minutes >= 10 ? 10 : 0));
         minWord.setAttribute('y', '245');
         minWord.setAttribute('dominant-baseline', 'middle');
         minWord.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
-        minWord.setAttribute('font-size', '24');
+        minWord.setAttribute('font-size', isFirstArrival ? 18 : 14);
         minWord.setAttribute('font-weight', '700');
         minWord.textContent = 'min';
         mainGroup.appendChild(minWord);
@@ -461,31 +480,38 @@
         destGroup.setAttribute('transform', `rotate(-35 ${x} 200)`);
 
         if (index === 0) {
-          // NEXT TRAIN label
+          // Check if train is arriving (0 minutes)
+          const isArriving = minutes === 0;
+          const labelText = isArriving ? 'TRAIN ARRIVING' : 'NEXT TRAIN';
+          const pillColor = isArriving ? '#ffffff' : color;
+          const pillTextColor = isArriving ? '#000000' : textColor;
+          const labelColor = color; // Always use route color
+
+          // NEXT TRAIN / TRAIN ARRIVING label
           const nextText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          nextText.setAttribute('fill', color);
+          nextText.setAttribute('fill', labelColor);
           nextText.setAttribute('x', x + 20);
           nextText.setAttribute('y', '75');
           nextText.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
           nextText.setAttribute('font-size', '46');
-          nextText.setAttribute('font-weight', '500');
+          nextText.setAttribute('font-weight', '700');
           nextText.setAttribute('letter-spacing', '0.06em');
-          nextText.textContent = 'NEXT TRAIN';
+          nextText.textContent = labelText;
           destGroup.appendChild(nextText);
 
-          // Pill background
+          // Pill background - extended to cut through the track line
           const pill = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          pill.setAttribute('fill', color);
+          pill.setAttribute('fill', pillColor);
           pill.setAttribute('x', x);
-          pill.setAttribute('y', '105');
+          pill.setAttribute('y', '115');
           pill.setAttribute('width', '560');
-          pill.setAttribute('height', '82');
-          pill.setAttribute('rx', '41');
+          pill.setAttribute('height', '70'); // Extended to slice diagonally through track
+          pill.setAttribute('rx', '35');
           destGroup.appendChild(pill);
 
           // Pill text
           const pillText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          pillText.setAttribute('fill', textColor);
+          pillText.setAttribute('fill', pillTextColor);
           pillText.setAttribute('x', x + 20);
           pillText.setAttribute('y', '160');
           pillText.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
