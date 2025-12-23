@@ -366,21 +366,21 @@
       bulletText.textContent = routeId;
       headerGroup.appendChild(bulletText);
 
-      // Route description
+      // Route description (left-aligned, centered below bullet)
       const routeDesc = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       routeDesc.setAttribute('fill', '#e9eef7');
-      routeDesc.setAttribute('x', '0');
-      routeDesc.setAttribute('y', '175');
+      routeDesc.setAttribute('x', '10');
+      routeDesc.setAttribute('y', '185');
       routeDesc.setAttribute('text-anchor', 'start');
       routeDesc.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
       routeDesc.setAttribute('font-size', '28');
-      routeDesc.setAttribute('font-weight', '800');
+      routeDesc.setAttribute('font-weight', '400');
       routeDesc.textContent = routeName;
       headerGroup.appendChild(routeDesc);
 
-      // Service status
+      // Service status (left-aligned, centered below route description)
       const statusGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      statusGroup.setAttribute('transform', 'translate(0,205)');
+      statusGroup.setAttribute('transform', 'translate(10,215)');
 
       const statusDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       statusDot.setAttribute('fill', serviceStatus === 'Good Service' ? '#00933c' : '#EE352E');
@@ -395,7 +395,7 @@
       statusText.setAttribute('y', '6');
       statusText.setAttribute('font-family', 'Inter, Helvetica, Arial, sans-serif');
       statusText.setAttribute('font-size', '18');
-      statusText.setAttribute('font-weight', '800');
+      statusText.setAttribute('font-weight', '400');
       statusText.setAttribute('letter-spacing', '0.08em');
       statusText.textContent = serviceStatus.toUpperCase();
       statusGroup.appendChild(statusText);
