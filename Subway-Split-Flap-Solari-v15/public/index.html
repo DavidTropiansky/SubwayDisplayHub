@@ -404,28 +404,20 @@
                 return;
             }
 
-            const uniqueStations = new Map();
-            stationsToShow.forEach(station => {
-                if (!uniqueStations.has(station.name)) {
-                    uniqueStations.set(station.name, station);
-                }
-            });
-
             stationsList.innerHTML = '';
-            uniqueStations.forEach((station, name) => {
-                const codes = stationMap.get(name).join(', ');
+            stationsToShow.forEach(station => {
                 const item = document.createElement('div');
                 item.className = 'station-item';
                 item.innerHTML = `
                     <div class="station-info">
-                        <div class="station-name">${name}</div>
+                        <div class="station-name">${station.name}</div>
                         <div class="station-routes" id="routes-${station.id}">
                             <span style="color:#666;font-size:11px;">Loading routes...</span>
                         </div>
                     </div>
                     <span class="station-code">${station.id}</span>
                 `;
-                item.onclick = () => selectStation(station.id, name);
+                item.onclick = () => selectStation(station.id, station.name);
                 stationsList.appendChild(item);
 
                 // Fetch and display routes
