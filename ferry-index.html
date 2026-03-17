@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYC Ferry Departures</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #003366 0%, #005f99 50%, #0077b6 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 8px 32px 0 rgba(0, 30, 60, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            max-width: 650px;
+            width: 90%;
+        }
+
+        .home-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-size: 1em;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .home-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: 300;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 40px;
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1.1em;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .search-box input:focus {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        .stations-list {
+            max-height: 450px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .station-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .station-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .station-item:last-child {
+            border-bottom: none;
+        }
+
+        .station-name {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .station-arrow {
+            font-size: 1.2em;
+            opacity: 0.5;
+            transition: all 0.2s;
+        }
+
+        .station-item:hover .station-arrow {
+            opacity: 1;
+            transform: translateX(4px);
+        }
+
+        .ferry-icon {
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 30px;
+            opacity: 0.6;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <a href="/" class="home-link">← Home</a>
+    <div class="container">
+        <h1>⛴ NYC FERRY</h1>
+        <div class="subtitle">Departure Board</div>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search for a ferry stop..." autocomplete="off">
+        </div>
+        
+        <div class="stations-list" id="stationsList">
+            <div class="no-results">Loading stops...</div>
+        </div>
+    </div>
+
+    <script>
+        const ferryStops = [
+            { name: "Hunters Point South", code: "s-dr5rubz42m-hunterspointsouth" },
+            { name: "South Williamsburg", code: "s-dr5rsfb98g-southwilliamsburg" },
+            { name: "Atlantic Ave/BBP Pier 6", code: "s-dr5rkpc3ft-atlanticave~bbppier6" },
+            { name: "Beach Channel Dr/Beach 108th Street", code: "s-dr5qzuj6j9-beachchanneldr~beach108thstreet" },
+            { name: "East 34th Street", code: "s-dr5ruc0nmp-east34thstreet" },
+            { name: "Greenpoint", code: "s-dr5rsyvm6u-greenpoint" },
+            { name: "North Williamsburg", code: "s-dr5rsvh2hf-northwilliamsburg" },
+            { name: "Dumbo/Fulton Ferry", code: "s-dr5rs1vgzy-dumbo~fultonferry" },
+            { name: "Bay Ridge", code: "s-dr5r5nr06d-bayridge" },
+            { name: "Red Hook/Atlantic Basin", code: "s-dr5r7v9pgb-redhook~atlanticbasin" },
+            { name: "Roosevelt Island", code: "s-dr5rv5t3wk-rooseveltisland" },
+            { name: "Beach Channel Dr/Beach 54th Street", code: "s-dr5wbyp7vb-beachchanneldr~beach54thstreet" },
+            { name: "Rockaway Beach Blvd & Beach 86th St", code: "s-dr5wbku24f-rockawaybeachboulevard~beach86thstreet" },
+            { name: "Beach Channel Dr/Beach 41st Street", code: "s-dr5wcq0rrq-beachchanneldr~beach41ststreet" },
+            { name: "Rockaway Point Blvd & Beach 169th St", code: "s-dr5qyc027j-rockawaypointboulevard~beach169thstreet" },
+            { name: "Jacob Riis Park Road/Bath House", code: "s-dr5qybzdyx-jacobriisparkroad~bathhouse" },
+            { name: "Rockaway Beach Blvd & Beach 149th St", code: "s-dr5qz1qn5q-rockawaybeachboulevard~beach149thstreet" },
+            { name: "Rockaway Beach Blvd & Beach 135th St", code: "s-dr5qz6mbp7-rockawaybeachboulevard~beach135thstreet" },
+            { name: "Rockaway Beach Blvd & Beach 127th St", code: "s-dr5qzdg0cb-rockawaybeachboulevard~beach127thstreet" },
+            { name: "Rockaway Beach Blvd & Beach 118th St", code: "s-dr5qzepyvw-rockawaybeachboulevard~beach118thstreet" },
+            { name: "Beach Channel Dr/Beach 36th Street", code: "s-dr5wcq6fq2-beachchanneldr~beach36thstreet" },
+            { name: "Wall St/Pier 11", code: "s-dr5recy35g-wallst~pier11" },
+            { name: "Rockaway", code: "s-dr5qzujkr0-rockaway" },
+            { name: "Astoria", code: "s-dr5rvw38kz-astoria" },
+            { name: "Long Island City", code: "s-dr5rv418u0-longislandcity" },
+            { name: "Rockaway Beach Blvd & Beach 67th St", code: "s-dr5wbtr1vm-rockawaybeachboulevard~beach67thstreet" },
+            { name: "Rockaway Beach Blvd & Beach 96th St", code: "s-dr5wbhr7hu-rockawaybeachboulevard~beach96thstreet" },
+            { name: "Rockaway Beach Blvd & Beach 77th St", code: "s-dr5wbsch36-rockawaybeachboulevard~beach77thstreet" },
+            { name: "Gov. Island/Yankee Pier", code: "s-dr5r7wybfg-govisland~yankeepier" },
+            { name: "Soundview", code: "s-dr72ps1j8q-soundview" },
+            { name: "East 90th St", code: "s-dr5rvrkfn8-east90thst" },
+            { name: "Stuyvesant Cove", code: "s-dr5rsxn8cz-stuyvesantcove" },
+            { name: "Corlears Hook", code: "s-dr5rse1cye-corlearshook" },
+            { name: "Sunset Park/BAT", code: "s-dr5r5rrtep-sunsetpark~bat" },
+            { name: "Brooklyn Navy Yard", code: "s-dr5rs9w14e-brooklynnavyyard" },
+            { name: "Battery Park City/Vesey St.", code: "s-dr5reevyhz-batteryparkcity~veseyst" },
+            { name: "St. George", code: "s-dr5r4rku92-stgeorge" },
+            { name: "Midtown West/W 39th St-Pier 79", code: "s-dr5rgupyh4-midtownwest~w39thst~pier79" },
+            { name: "Ferry Point Park", code: "s-dr72pu3m40-ferrypointpark" },
+            { name: "Rockaway Beach Blvd & Beach 102nd St", code: "s-dr5wbh53by-rockawaybeachboulevard~beach102ndstreet" },
+            { name: "Rockaway Beach Blvd & Beach 79th St", code: "s-dr5wbsbe5e-rockawaybeachboulevard~beach79thstreet" }
+        ].sort((a, b) => a.name.localeCompare(b.name));
+
+        function displayStops(stopsToShow) {
+            const stationsList = document.getElementById('stationsList');
+            
+            if (stopsToShow.length === 0) {
+                stationsList.innerHTML = '<div class="no-results">No stops found</div>';
+                return;
+            }
+
+            stationsList.innerHTML = '';
+            stopsToShow.forEach(stop => {
+                const item = document.createElement('div');
+                item.className = 'station-item';
+                item.innerHTML = 
+                    '<div class="station-name"><span class="ferry-icon">⛴</span>' + stop.name + '</div>' +
+                    '<span class="station-arrow">→</span>';
+                item.onclick = function() {
+                    window.location.href = '/ferry/stop/' + encodeURIComponent(stop.code);
+                };
+                stationsList.appendChild(item);
+            });
+        }
+
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            
+            if (searchTerm === '') {
+                displayStops(ferryStops);
+                return;
+            }
+
+            const filtered = ferryStops.filter(function(stop) {
+                return stop.name.toLowerCase().includes(searchTerm) ||
+                       stop.code.toLowerCase().includes(searchTerm);
+            });
+            
+            displayStops(filtered);
+        });
+
+        displayStops(ferryStops);
+    </script>
+</body>
+</html>

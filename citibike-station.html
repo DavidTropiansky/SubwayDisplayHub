@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Citi Bike Station</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background: #0d1f2d;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .back-link {
+      position: fixed; left: 14px; top: 14px;
+      color: #0073cf; text-decoration: none; font-size: 15px;
+      z-index: 100;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .fullscreen-btn {
+      position: fixed; right: 14px; top: 14px;
+      background: transparent; border: 2px solid #0073cf; color: #0073cf;
+      padding: 7px 14px; font-size: 13px; font-weight: bold;
+      border-radius: 5px; cursor: pointer; z-index: 100;
+    }
+    .fullscreen-btn:hover { background: #0073cf; color: #fff; }
+    .fullscreen-hide { display: none !important; }
+    /* Dark/Light Toggle */
+    .theme-toggle {
+      position: fixed; right: 110px; top: 14px;
+      width: 68px; height: 34px; border-radius: 17px;
+      cursor: pointer; z-index: 100; border: none; padding: 0;
+      overflow: hidden; transition: background 0.4s;
+      background: linear-gradient(135deg, #1a2744 0%, #2d3a5c 100%);
+    }
+    .theme-toggle .toggle-track { position: relative; width: 100%; height: 100%; }
+    .theme-toggle .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 28px; height: 28px; border-radius: 50%;
+      transition: all 0.4s cubic-bezier(0.68, -0.15, 0.32, 1.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; background: #e8e8e8;
+    }
+    .theme-toggle .stars {
+      position: absolute; top: 6px; right: 10px;
+      font-size: 8px; color: #fff; opacity: 1; transition: opacity 0.3s;
+    }
+    .theme-toggle .clouds {
+      position: absolute; top: 8px; right: 8px;
+      font-size: 11px; opacity: 0; transition: opacity 0.3s;
+    }
+    body.light-mode .theme-toggle { background: linear-gradient(135deg, #54a0d6 0%, #87ceeb 100%); }
+    body.light-mode .theme-toggle .toggle-thumb { left: 37px; background: #FFD700; box-shadow: 0 0 10px rgba(255,215,0,0.5); }
+    body.light-mode .theme-toggle .stars { opacity: 0; }
+    body.light-mode .theme-toggle .clouds { opacity: 1; }
+    /* Light mode page styles */
+    body.light-mode { background: #e8edf2; color: #1a1a2e; }
+    body.light-mode .back-link { color: #0058a0; }
+    body.light-mode .fullscreen-btn { border-color: #0058a0; color: #0058a0; }
+    body.light-mode .fullscreen-btn:hover { background: #0058a0; color: #fff; }
+    body.light-mode #time-display { color: #333; }
+    body.light-mode #weather-display { color: #333; }
+    body.light-mode header h1 { color: #0058a0; }
+    body.light-mode .station-status { color: #666; }
+    body.light-mode .last-updated { color: #888; }
+    body.light-mode .card { background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.1); }
+    body.light-mode .card-label { color: #666; }
+    body.light-mode .card-sub { color: #777; }
+    body.light-mode .bikes-val { color: #1a8a4a; }
+    body.light-mode .classic-val { color: #0058a0; }
+    body.light-mode .ebikes-val { color: #666; }
+    body.light-mode .docks-val { color: #222; }
+    body.light-mode .gauge-label { color: #666; }
+    body.light-mode .gauge-bar { background: #ccc; }
+    body.light-mode .seg-docks { background: #ddd; color: #555; }
+    body.light-mode .gauge-legend { color: #666; }
+    body.light-mode .nearby-title { color: #0058a0; }
+    body.light-mode .nearby-list { background: rgba(0,0,0,0.04); }
+    body.light-mode .nearby-item { border-bottom: 1px solid rgba(0,0,0,0.06); }
+    body.light-mode .nearby-item:hover { background: rgba(0,88,160,0.08); }
+    body.light-mode .nearby-name { color: #222; }
+    body.light-mode .nearby-dist { color: #666; }
+    body.light-mode #loading { color: #0058a0; }
+    #time-display {
+      position: fixed; right: 14px; top: 50px;
+      font-size: 18px; font-weight: bold; color: #aaa; z-index: 100;
+    }
+    #weather-display {
+      position: fixed; left: 14px; top: 50px;
+      font-size: 18px; font-weight: bold; color: #aaa; z-index: 100;
+    }
+    header {
+      text-align: center; padding: 60px 20px 10px; width: 100%;
+    }
+    header h1 {
+      font-size: 2em; color: #0073cf; margin-bottom: 4px;
+    }
+    .station-status { font-size: 0.95em; color: #888; margin-bottom: 12px; }
+    .status-active { color: #27ae60; }
+    .status-inactive { color: #c0392b; }
+    .last-updated { font-size: 0.8em; color: #666; margin-bottom: 18px; }
+
+    .dashboard {
+      display: flex; flex-wrap: wrap; gap: 20px;
+      justify-content: center; max-width: 900px; width: 95%;
+      margin-bottom: 30px;
+    }
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 28px 24px;
+      min-width: 200px; flex: 1; text-align: center;
+    }
+    .card-label { font-size: 0.85em; color: #888; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+    .card-value { font-size: 3em; font-weight: 800; line-height: 1; }
+    .card-sub { font-size: 0.85em; color: #999; margin-top: 8px; }
+    .bikes-val { color: #27ae60; }
+    .ebikes-val { color: #999; }
+    .classic-val { color: #0073cf; }
+    .docks-val { color: #fff; }
+    .capacity-val { color: #888; }
+
+    .gauge-section {
+      max-width: 500px; width: 90%; margin-bottom: 30px;
+    }
+    .gauge-label { font-size: 0.85em; color: #888; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; text-align: center; }
+    .gauge-bar {
+      height: 36px; border-radius: 18px; overflow: hidden;
+      background: #1a2a3a; display: flex; position: relative;
+    }
+    .gauge-segment {
+      height: 100%; transition: width 0.5s ease;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75em; font-weight: 700; color: #fff;
+      min-width: 0; overflow: hidden; white-space: nowrap;
+    }
+    .seg-classic { background: #0073cf; }
+    .seg-ebike { background: #999; }
+    .seg-disabled { background: #e74c3c; }
+    .seg-docks { background: #fff; color: #333; }
+    .gauge-legend {
+      display: flex; justify-content: center; gap: 18px;
+      margin-top: 10px; font-size: 0.8em; color: #aaa;
+    }
+    .legend-dot {
+      display: inline-block; width: 10px; height: 10px;
+      border-radius: 50%; margin-right: 4px; vertical-align: middle;
+    }
+
+    .nearby-section {
+      max-width: 700px; width: 95%; margin-bottom: 40px;
+    }
+    .nearby-title { font-size: 1.1em; color: #0073cf; margin-bottom: 12px; text-align: center; }
+    .nearby-list { background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; }
+    .nearby-item {
+      padding: 12px 16px; display: flex; justify-content: space-between;
+      align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06);
+      cursor: pointer; transition: background 0.2s;
+    }
+    .nearby-item:hover { background: rgba(0,115,207,0.12); }
+    .nearby-item:last-child { border-bottom: none; }
+    .nearby-name { font-weight: 500; }
+    .nearby-dist { font-size: 0.85em; color: #888; }
+    .nearby-meta { display: flex; gap: 10px; align-items: center; font-size: 0.82em; }
+    .nearby-bikes { color: #0073cf; font-weight: 700; }
+    .nearby-docks { color: #999; font-weight: 700; }
+
+    #loading { color: #0073cf; font-size: 1.1em; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <a href="/citibike" class="back-link" id="back-link">&lt; Back to Stations</a>
+  <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">
+    <div class="toggle-track">
+      <div class="toggle-thumb">🌙</div>
+      <div class="stars">✦ ✧ ✦</div>
+      <div class="clouds">☁️</div>
+    </div>
+  </button>
+  <button class="fullscreen-btn" id="fullscreen-btn">Fullscreen</button>
+  <div id="time-display"></div>
+  <div id="weather-display">Loading weather...</div>
+
+  <header>
+    <h1 id="station-name">Loading...</h1>
+    <div class="station-status" id="station-status"></div>
+    <div class="last-updated" id="last-updated"></div>
+  </header>
+
+  <div id="loading">Loading station data...</div>
+
+  <div class="dashboard" id="dashboard" style="display:none;">
+    <div class="card">
+      <div class="card-label">Total Bikes</div>
+      <div class="card-value bikes-val" id="total-bikes">--</div>
+      <div class="card-sub" id="bikes-sub"></div>
+    </div>
+    <div class="card">
+      <div class="card-label">Classic Bikes</div>
+      <div class="card-value classic-val" id="classic-bikes">--</div>
+    </div>
+    <div class="card">
+      <div class="card-label">E-Bikes ⚡</div>
+      <div class="card-value ebikes-val" id="ebikes">--</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Docks Free</div>
+      <div class="card-value docks-val" id="docks-free">--</div>
+      <div class="card-sub" id="docks-sub"></div>
+    </div>
+  </div>
+
+  <div class="gauge-section" id="gauge-section" style="display:none;">
+    <div class="gauge-label">Dock Occupancy</div>
+    <div class="gauge-bar" id="gauge-bar"></div>
+    <div class="gauge-legend">
+      <span><span class="legend-dot" style="background:#0073cf"></span>Classic</span>
+      <span><span class="legend-dot" style="background:#999"></span>E-Bike</span>
+      <span><span class="legend-dot" style="background:#e74c3c"></span>Disabled</span>
+      <span><span class="legend-dot" style="background:#fff"></span>Empty Dock</span>
+    </div>
+  </div>
+
+  <div class="nearby-section" id="nearby-section" style="display:none;">
+    <div class="nearby-title">Nearby Stations</div>
+    <div class="nearby-list" id="nearby-list"></div>
+  </div>
+
+  <script>
+    const pathParts = window.location.pathname.split('/');
+    const stationId = decodeURIComponent(pathParts[pathParts.length - 1]);
+
+    // Time
+    function updateTime() {
+      const now = new Date();
+      let h = now.getHours(); const m = now.getMinutes();
+      const ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+      document.getElementById('time-display').innerText = h + ':' + (m<10?'0':'') + m + ' ' + ap;
+    }
+    updateTime(); setInterval(updateTime, 60000);
+
+    // Weather
+    function getWeatherEmoji(c) {
+      c = c.toLowerCase();
+      if (c.includes('sunny')||c.includes('clear')) return {emoji:'☀',color:'#FFD700'};
+      if (c.includes('partly cloudy')) return {emoji:'⛅',color:'#FDB813'};
+      if (c.includes('cloudy')||c.includes('overcast')) return {emoji:'☁',color:'#B0B0B0'};
+      if (c.includes('rain')&&!c.includes('thunder')) return {emoji:'🌧',color:'#4682B4'};
+      if (c.includes('thunder')||c.includes('storm')) return {emoji:'⛈',color:'#8B008B'};
+      if (c.includes('snow')) return {emoji:'🌨',color:'#E0FFFF'};
+      if (c.includes('fog')||c.includes('mist')) return {emoji:'🌫',color:'#DCDCDC'};
+      return {emoji:'🌤',color:'#FFA500'};
+    }
+    async function fetchWeather() {
+      try {
+        const pr = await fetch('https://api.weather.gov/points/40.7128,-74.006');
+        const pd = await pr.json();
+        const sr = await fetch(pd.properties.observationStations);
+        const sd = await sr.json();
+        const sid = sd.features[0].properties.stationIdentifier;
+        const or = await fetch('https://api.weather.gov/stations/'+sid+'/observations/latest');
+        const od = await or.json();
+        const t = od.properties.temperature.value;
+        const tF = t ? Math.round(t*9/5+32) : '--';
+        const cond = od.properties.textDescription || 'Unknown';
+        const w = getWeatherEmoji(cond);
+        document.getElementById('weather-display').innerHTML = '<span style="color:'+w.color+'">'+w.emoji+'</span> '+tF+'°F';
+      } catch(e) { document.getElementById('weather-display').textContent = 'Weather unavailable'; }
+    }
+    fetchWeather(); setInterval(fetchWeather, 600000);
+
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', function() {
+      document.body.classList.toggle('light-mode');
+      const thumb = this.querySelector('.toggle-thumb');
+      thumb.textContent = document.body.classList.contains('light-mode') ? '☀️' : '🌙';
+      localStorage.setItem('citibike-theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+    });
+    if (localStorage.getItem('citibike-theme') === 'light') {
+      document.body.classList.add('light-mode');
+      document.querySelector('#theme-toggle .toggle-thumb').textContent = '☀️';
+    }
+
+    // Fullscreen
+    let isFS = false;
+    document.getElementById('fullscreen-btn').addEventListener('click', function() {
+      if (!isFS) {
+        document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+        document.getElementById('back-link').classList.add('fullscreen-hide');
+        document.getElementById('fullscreen-btn').classList.add('fullscreen-hide');
+        document.getElementById('theme-toggle').classList.add('fullscreen-hide');
+        isFS = true;
+      } else {
+        document.exitFullscreen && document.exitFullscreen();
+        document.getElementById('back-link').classList.remove('fullscreen-hide');
+        document.getElementById('fullscreen-btn').classList.remove('fullscreen-hide');
+        document.getElementById('theme-toggle').classList.remove('fullscreen-hide');
+        isFS = false;
+      }
+    });
+    document.addEventListener('fullscreenchange', function() {
+      if (!document.fullscreenElement) {
+        document.getElementById('back-link').classList.remove('fullscreen-hide');
+        document.getElementById('fullscreen-btn').classList.remove('fullscreen-hide');
+        document.getElementById('theme-toggle').classList.remove('fullscreen-hide');
+        isFS = false;
+      }
+    });
+
+    // Haversine distance (km)
+    function haversine(lat1,lon1,lat2,lon2) {
+      const R=6371, toRad=Math.PI/180;
+      const dLat=(lat2-lat1)*toRad, dLon=(lon2-lon1)*toRad;
+      const a=Math.sin(dLat/2)**2+Math.cos(lat1*toRad)*Math.cos(lat2*toRad)*Math.sin(dLon/2)**2;
+      return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    }
+
+    async function loadStation() {
+      try {
+        const resp = await fetch('/api/citibike/stations/' + encodeURIComponent(stationId));
+        const st = await resp.json();
+        if (st.error) { document.getElementById('loading').textContent = 'Station not found.'; return; }
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'flex';
+        document.getElementById('gauge-section').style.display = 'block';
+
+        document.getElementById('station-name').textContent = '🚲 ' + st.name;
+        document.title = st.name + ' - Citi Bike';
+
+        // Status
+        const statusEl = document.getElementById('station-status');
+        const isActive = st.is_installed && st.is_renting;
+        statusEl.innerHTML = isActive
+          ? '<span class="status-active">● Active</span>'
+          : '<span class="status-inactive">● Inactive</span>';
+
+        // Last updated
+        if (st.last_reported && st.last_reported > 86400) {
+          const d = new Date(st.last_reported * 1000);
+          document.getElementById('last-updated').textContent = 'Last updated: ' + d.toLocaleTimeString();
+        }
+
+        // Cards
+        document.getElementById('total-bikes').textContent = st.num_bikes_available;
+        document.getElementById('bikes-sub').textContent = 'of ' + st.capacity + ' capacity';
+        document.getElementById('classic-bikes').textContent = st.classic_bikes;
+        document.getElementById('ebikes').textContent = st.ebikes;
+        document.getElementById('docks-free').textContent = st.num_docks_available;
+        document.getElementById('docks-sub').textContent = st.num_bikes_disabled > 0 ? st.num_bikes_disabled + ' disabled' : '';
+
+        // Gauge
+        const total = st.capacity || (st.num_bikes_available + st.num_docks_available + st.num_bikes_disabled);
+        if (total > 0) {
+          const classicPct = (st.classic_bikes / total * 100).toFixed(1);
+          const ebikePct = (st.ebikes / total * 100).toFixed(1);
+          const disabledPct = (st.num_bikes_disabled / total * 100).toFixed(1);
+          const docksPct = (st.num_docks_available / total * 100).toFixed(1);
+          document.getElementById('gauge-bar').innerHTML =
+            '<div class="gauge-segment seg-classic" style="width:'+classicPct+'%">'+(st.classic_bikes>0?st.classic_bikes:'')+'</div>' +
+            '<div class="gauge-segment seg-ebike" style="width:'+ebikePct+'%">'+(st.ebikes>0?st.ebikes:'')+'</div>' +
+            '<div class="gauge-segment seg-disabled" style="width:'+disabledPct+'%">'+(st.num_bikes_disabled>0?st.num_bikes_disabled:'')+'</div>' +
+            '<div class="gauge-segment seg-docks" style="width:'+docksPct+'%">'+(st.num_docks_available>0?st.num_docks_available:'')+'</div>';
+        }
+
+        // Nearby stations
+        if (st.lat && st.lon) {
+          try {
+            const nearResp = await fetch('/api/citibike/stations?lat='+st.lat+'&lon='+st.lon+'&limit=6');
+            const nearStations = await nearResp.json();
+            const nearby = nearStations.filter(function(n) { return n.station_id !== st.station_id; }).slice(0, 5);
+            if (nearby.length > 0) {
+              document.getElementById('nearby-section').style.display = 'block';
+              const list = document.getElementById('nearby-list');
+              list.innerHTML = '';
+              nearby.forEach(function(n) {
+                const dist = haversine(st.lat, st.lon, n.lat, n.lon);
+                const distStr = dist < 1 ? Math.round(dist*1000)+'m' : dist.toFixed(1)+'km';
+                const item = document.createElement('div');
+                item.className = 'nearby-item';
+                item.innerHTML =
+                  '<div><div class="nearby-name">'+n.name+'</div><div class="nearby-dist">'+distStr+' away</div></div>' +
+                  '<div class="nearby-meta">' +
+                    '<span class="nearby-bikes">🚲 '+n.num_bikes_available+'</span>' +
+                    '<span class="nearby-docks">🅿 '+n.num_docks_available+'</span>' +
+                  '</div>';
+                item.onclick = function() { window.location.href = '/citibike/station/'+encodeURIComponent(n.station_id); };
+                list.appendChild(item);
+              });
+            }
+          } catch(e) { /* nearby is optional */ }
+        }
+
+      } catch (err) {
+        console.error('Error:', err);
+        document.getElementById('loading').textContent = 'Error loading station data.';
+      }
+    }
+
+    loadStation();
+    setInterval(loadStation, 30000);
+  </script>
+</body>
+</html>

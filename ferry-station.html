@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ferry Departures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      font-size: 20px;
+      font-weight: bold;
+      text-align: center;
+      background-color: #001a33;
+      color: white;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #header-container {
+      position: relative;
+      width: 100%;
+      padding-top: 10px;
+    }
+    #time-display {
+      position: fixed;
+      right: 10px;
+      top: 10px;
+      font-size: 20px;
+      font-weight: bold;
+      color: white;
+      font-family: Arial, sans-serif;
+      z-index: 100;
+    }
+    #weather-display {
+      position: fixed;
+      left: 10px;
+      top: 10px;
+      font-size: 20px;
+      font-weight: bold;
+      color: white;
+      text-align: left;
+      white-space: nowrap;
+      font-family: Arial, sans-serif;
+      z-index: 100;
+    }
+    h1 {
+      margin: 5px 0;
+      font-size: 28px;
+      text-decoration: overline;
+      color: #66ccff;
+    }
+    .back-link {
+      position: fixed;
+      left: 10px;
+      top: 45px;
+      color: #66ccff;
+      text-decoration: none;
+      font-size: 16px;
+    }
+    .back-link:hover {
+      text-decoration: underline;
+    }
+    .fullscreen-btn {
+      position: fixed;
+      right: 10px;
+      top: 45px;
+      background: transparent;
+      border: 2px solid #66ccff;
+      color: #66ccff;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 1000;
+    }
+    .fullscreen-btn:hover {
+      background: #66ccff;
+      color: #001a33;
+    }
+    .fullscreen-hide {
+      display: none !important;
+    }
+    /* Dark/Light Toggle */
+    .theme-toggle {
+      position: fixed;
+      right: 120px;
+      top: 45px;
+      width: 68px;
+      height: 34px;
+      border-radius: 17px;
+      cursor: pointer;
+      z-index: 1000;
+      border: none;
+      padding: 0;
+      overflow: hidden;
+      transition: background 0.4s;
+      background: linear-gradient(135deg, #1a2744 0%, #2d3a5c 100%);
+    }
+    .theme-toggle .toggle-track {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .theme-toggle .toggle-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      transition: all 0.4s cubic-bezier(0.68, -0.15, 0.32, 1.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      background: #e8e8e8;
+    }
+    .theme-toggle .stars {
+      position: absolute;
+      top: 6px; right: 10px;
+      font-size: 8px;
+      color: #fff;
+      opacity: 1;
+      transition: opacity 0.3s;
+    }
+    .theme-toggle .clouds {
+      position: absolute;
+      top: 8px; right: 8px;
+      font-size: 11px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    /* Light mode toggle state */
+    body.light-mode .theme-toggle {
+      background: linear-gradient(135deg, #54a0d6 0%, #87ceeb 100%);
+    }
+    body.light-mode .theme-toggle .toggle-thumb {
+      left: 37px;
+      background: #FFD700;
+      box-shadow: 0 0 10px rgba(255,215,0,0.5);
+    }
+    body.light-mode .theme-toggle .stars { opacity: 0; }
+    body.light-mode .theme-toggle .clouds { opacity: 1; }
+
+    /* Light mode page styles */
+    body.light-mode {
+      background-color: #e8edf2;
+      color: #1a1a2e;
+    }
+    body.light-mode #time-display { color: #333; }
+    body.light-mode #weather-display { color: #333; }
+    body.light-mode h1 { color: #0066aa; }
+    body.light-mode .back-link { color: #0066aa; }
+    body.light-mode .filter-hint { color: #5577aa; }
+    body.light-mode .fullscreen-btn { border-color: #0066aa; color: #0066aa; }
+    body.light-mode .fullscreen-btn:hover { background: #0066aa; color: #fff; }
+    body.light-mode th { background-color: #c8dae8; color: #1a3050; }
+    body.light-mode th, body.light-mode td { border: 1px solid #b0c4d8; }
+    body.light-mode tbody tr:nth-child(odd) { background-color: #f0f4f8; }
+    body.light-mode tbody tr:nth-child(even) { background-color: #e0e8f0; }
+    body.light-mode tbody tr:hover { background-color: #ccdde8; }
+    body.light-mode .eta-normal { color: #1a1a2e; }
+    body.light-mode .eta-soon { color: #cc8800; }
+    body.light-mode .eta-now { color: #008844; }
+    body.light-mode #loading { color: #0066aa; }
+    body.light-mode .no-departures { color: #5577aa; }
+    body.light-mode .route-toggle { border-color: transparent; }
+    body.light-mode .route-toggle.active { border-color: #333; box-shadow: 0 0 8px rgba(0,0,0,0.15); }
+    .route-toggles {
+      margin: 8px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      max-height: 60px;
+      overflow-y: auto;
+    }
+    .route-toggle {
+      display: inline-flex;
+      height: 32px;
+      min-width: 32px;
+      padding: 0 10px;
+      justify-content: center;
+      align-items: center;
+      border-radius: 16px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s;
+      opacity: 0.4;
+      white-space: nowrap;
+    }
+    .route-toggle.active {
+      opacity: 1;
+      border-color: white;
+      box-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+    .route-toggle:hover {
+      opacity: 0.8;
+    }
+    .filter-hint {
+      font-size: 12px;
+      color: #6699bb;
+      margin-bottom: 5px;
+    }
+    .route-pill {
+      display: inline-flex;
+      height: 30px;
+      min-width: 30px;
+      padding: 0 10px;
+      justify-content: center;
+      align-items: center;
+      border-radius: 15px;
+      font-size: 13px;
+      font-weight: bold;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      white-space: nowrap;
+    }
+    table {
+      width: 99%;
+      margin: 5px auto;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #003366;
+      padding: 8px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    th {
+      background-color: #003d66;
+      color: #99ddff;
+    }
+    tbody tr {
+      transition: all 0.2s;
+    }
+    tbody tr:nth-child(odd) {
+      background-color: #001f3f;
+    }
+    tbody tr:nth-child(even) {
+      background-color: #002b50;
+    }
+    tbody tr:hover {
+      background-color: #004080;
+    }
+    .departing-soon {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .eta-now {
+      color: #00ff88;
+      font-weight: 900;
+    }
+    .eta-soon {
+      color: #ffcc00;
+    }
+    .eta-normal {
+      color: #ffffff;
+    }
+    #loading {
+      color: #66ccff;
+      font-size: 18px;
+      margin: 10px;
+    }
+    .no-departures {
+      color: #6699bb;
+      font-size: 18px;
+      padding: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div id="header-container">
+    <a href="/ferry" class="back-link" id="back-link">&lt; Back to Stops</a>
+    <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">
+      <div class="toggle-track">
+        <div class="toggle-thumb">🌙</div>
+        <div class="stars">✦ ✧ ✦</div>
+        <div class="clouds">☁️</div>
+      </div>
+    </button>
+    <button class="fullscreen-btn" id="fullscreen-btn">Fullscreen</button>
+    <div id="time-display"></div>
+    <div id="weather-display">Loading weather...</div>
+    <h1 id="station-header">Loading...</h1>
+    <div class="route-toggles" id="route-toggles"></div>
+    <div class="filter-hint" id="filter-hint">Click routes to filter departures</div>
+  </div>
+  <div id="loading">Fetching departures...</div>
+  <table id="departures-table" style="display:none;">
+    <thead>
+      <tr>
+        <th>Route</th>
+        <th>Destination</th>
+        <th>Departs</th>
+        <th>ETA (min)</th>
+      </tr>
+    </thead>
+    <tbody id="departure-table-body"></tbody>
+  </table>
+  <script>
+    // Extract stop code from URL
+    const pathParts = window.location.pathname.split('/');
+    const stopCode = decodeURIComponent(pathParts[pathParts.length - 1]);
+
+    let allDepartures = [];
+    let availableRoutes = [];
+    let selectedRoutes = new Set();
+    let hasStartedFiltering = false;
+    let maxRows = 10;
+
+    // Ferry route colors (official NYC Ferry brand guide)
+    const ferryRouteColors = {
+      'ER': { bg: '#228B9D', text: '#FFFFFF', name: 'East River' },
+      'RW': { bg: '#AD1AAC', text: '#FFFFFF', name: 'Rockaway' },
+      'RK': { bg: '#AD1AAC', text: '#FFFFFF', name: 'Rockaway' },
+      'RS': { bg: '#AD1AAC', text: '#FFFFFF', name: 'Rockaway' },
+      'AST': { bg: '#FE5000', text: '#FFFFFF', name: 'Astoria' },
+      'AS': { bg: '#FE5000', text: '#FFFFFF', name: 'Astoria' },
+      'SB': { bg: '#FFD100', text: '#000000', name: 'South Brooklyn' },
+      'GV': { bg: '#9893A0', text: '#FFFFFF', name: "Gov. Island" },
+      'GI': { bg: '#9893A0', text: '#FFFFFF', name: "Gov. Island" },
+      'SV': { bg: '#4E008E', text: '#FFFFFF', name: 'Soundview' },
+      'SR': { bg: '#D0006F', text: '#FFFFFF', name: 'St. George' },
+      'SG': { bg: '#D0006F', text: '#FFFFFF', name: 'St. George' },
+      'LP': { bg: '#228B9D', text: '#FFFFFF', name: 'Lower East Side' },
+      'LE': { bg: '#228B9D', text: '#FFFFFF', name: 'Lower East Side' },
+      'CS': { bg: '#FE5000', text: '#FFFFFF', name: 'Coney Island' },
+      'CI': { bg: '#FE5000', text: '#FFFFFF', name: 'Coney Island' },
+      'MH': { bg: '#228B9D', text: '#FFFFFF', name: 'Midtown-Hunter\'s Pt' },
+      'default': { bg: '#228B9D', text: '#FFFFFF', name: 'NYC Ferry' }
+    };
+
+    function getRouteColor(routeId) {
+      return ferryRouteColors[routeId] || ferryRouteColors['default'];
+    }
+
+    // Time display
+    function updateTime() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      const minutesStr = minutes < 10 ? '0' + minutes : minutes;
+      document.getElementById('time-display').innerText = hours + ':' + minutesStr + ' ' + ampm;
+    }
+    updateTime();
+    setInterval(updateTime, 60000);
+
+    // Weather
+    function getWeatherEmoji(condition) {
+      const c = condition.toLowerCase();
+      if (c.includes('sunny') || c.includes('clear')) return { emoji: '☀', color: '#FFD700' };
+      if (c.includes('partly cloudy') || c.includes('mostly sunny')) return { emoji: '⛅', color: '#FDB813' };
+      if (c.includes('cloudy') || c.includes('overcast')) return { emoji: '☁', color: '#B0B0B0' };
+      if (c.includes('rain') && !c.includes('thunder')) return { emoji: '🌧', color: '#4682B4' };
+      if (c.includes('drizzle') || c.includes('sprinkle')) return { emoji: '🌦', color: '#6495ED' };
+      if (c.includes('thunder') || c.includes('storm')) return { emoji: '⛈', color: '#8B008B' };
+      if (c.includes('snow') || c.includes('flurr')) return { emoji: '🌨', color: '#E0FFFF' };
+      if (c.includes('sleet') || c.includes('freezing')) return { emoji: '🌧', color: '#87CEEB' };
+      if (c.includes('fog') || c.includes('mist') || c.includes('haze')) return { emoji: '🌫', color: '#DCDCDC' };
+      if (c.includes('wind') || c.includes('breezy')) return { emoji: '💨', color: '#87CEEB' };
+      if (c.includes('hot')) return { emoji: '🌡', color: '#FF4500' };
+      if (c.includes('cold')) return { emoji: '❄', color: '#00CED1' };
+      return { emoji: '🌤', color: '#FFA500' };
+    }
+
+    async function fetchWeather() {
+      try {
+        const lat = 40.7128;
+        const lon = -74.0060;
+        const pointResp = await fetch('https://api.weather.gov/points/' + lat + ',' + lon);
+        const pointData = await pointResp.json();
+        const forecastUrl = pointData.properties.forecast;
+        const observationStationsUrl = pointData.properties.observationStations;
+        const forecastResp = await fetch(forecastUrl);
+        const forecastData = await forecastResp.json();
+        const currentPeriod = forecastData.properties.periods[0];
+        const stationsResp = await fetch(observationStationsUrl);
+        const stationsData = await stationsResp.json();
+        const stationIdWeather = stationsData.features[0].properties.stationIdentifier;
+        const obsResp = await fetch('https://api.weather.gov/stations/' + stationIdWeather + '/observations/latest');
+        const obsData = await obsResp.json();
+        const temp = obsData.properties.temperature.value;
+        const tempF = temp ? Math.round(temp * 9/5 + 32) : currentPeriod.temperature;
+        const conditions = obsData.properties.textDescription || currentPeriod.shortForecast || 'Unknown';
+        const weatherInfo = getWeatherEmoji(conditions);
+        document.getElementById('weather-display').innerHTML = '<span style="color: ' + weatherInfo.color + ';">' + weatherInfo.emoji + '</span> ' + tempF + '°F';
+      } catch (err) {
+        console.error('Error fetching weather:', err);
+        document.getElementById('weather-display').textContent = 'Weather unavailable';
+      }
+    }
+    fetchWeather();
+    setInterval(fetchWeather, 600000);
+
+    // Theme toggle
+    document.getElementById('theme-toggle').addEventListener('click', function() {
+      document.body.classList.toggle('light-mode');
+      const thumb = this.querySelector('.toggle-thumb');
+      thumb.textContent = document.body.classList.contains('light-mode') ? '☀️' : '🌙';
+      localStorage.setItem('ferry-theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+    });
+    // Restore saved theme
+    if (localStorage.getItem('ferry-theme') === 'light') {
+      document.body.classList.add('light-mode');
+      document.querySelector('#theme-toggle .toggle-thumb').textContent = '☀️';
+    }
+
+    // Fullscreen
+    let isFullscreen = false;
+    function toggleFullscreen() {
+      const backLink = document.getElementById('back-link');
+      const filterHint = document.getElementById('filter-hint');
+      const fullscreenBtn = document.getElementById('fullscreen-btn');
+      const themeToggle = document.getElementById('theme-toggle');
+      if (!isFullscreen) {
+        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+        else if (document.documentElement.webkitRequestFullscreen) document.documentElement.webkitRequestFullscreen();
+        backLink.classList.add('fullscreen-hide');
+        filterHint.classList.add('fullscreen-hide');
+        fullscreenBtn.classList.add('fullscreen-hide');
+        themeToggle.classList.add('fullscreen-hide');
+        isFullscreen = true;
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        backLink.classList.remove('fullscreen-hide');
+        filterHint.classList.remove('fullscreen-hide');
+        fullscreenBtn.classList.remove('fullscreen-hide');
+        themeToggle.classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+    }
+    document.getElementById('fullscreen-btn').addEventListener('click', toggleFullscreen);
+    document.addEventListener('fullscreenchange', function() {
+      if (!document.fullscreenElement) {
+        document.getElementById('back-link').classList.remove('fullscreen-hide');
+        document.getElementById('filter-hint').classList.remove('fullscreen-hide');
+        document.getElementById('fullscreen-btn').classList.remove('fullscreen-hide');
+        document.getElementById('theme-toggle').classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+    });
+
+    // Route filtering
+    function updateFilterHint() {
+      const hint = document.getElementById('filter-hint');
+      if (selectedRoutes.size === availableRoutes.length) {
+        hint.innerText = 'Showing all routes - click to filter';
+      } else if (selectedRoutes.size === 0) {
+        hint.innerText = 'No routes selected - click routes to show';
+      } else {
+        hint.innerText = 'Filtered to ' + selectedRoutes.size + ' route(s)';
+      }
+    }
+
+    document.getElementById('route-toggles').addEventListener('click', function(e) {
+      const toggle = e.target.closest('.route-toggle');
+      if (!toggle) return;
+      const route = toggle.dataset.route;
+
+      if (!hasStartedFiltering) {
+        selectedRoutes.clear();
+        selectedRoutes.add(route);
+        hasStartedFiltering = true;
+        document.querySelectorAll('.route-toggle').forEach(function(btn) {
+          btn.classList.toggle('active', btn.dataset.route === route);
+        });
+      } else {
+        if (selectedRoutes.has(route)) {
+          selectedRoutes.delete(route);
+          toggle.classList.remove('active');
+        } else {
+          selectedRoutes.add(route);
+          toggle.classList.add('active');
+        }
+        if (selectedRoutes.size === 0) {
+          selectedRoutes = new Set(availableRoutes);
+          hasStartedFiltering = false;
+          document.querySelectorAll('.route-toggle').forEach(function(btn) {
+            btn.classList.add('active');
+          });
+        }
+        if (selectedRoutes.size === availableRoutes.length) {
+          hasStartedFiltering = false;
+        }
+      }
+      updateFilterHint();
+      renderDepartures();
+    });
+
+    // Calculate max rows based on viewport
+    function calculateMaxRows() {
+      const viewportHeight = window.innerHeight;
+      const headerContainer = document.getElementById('header-container');
+      const thead = document.querySelector('thead');
+      const headerHeight = headerContainer ? headerContainer.offsetHeight : 150;
+      const theadHeight = thead ? thead.offsetHeight : 50;
+      const tableMargin = 40;
+      const rowHeight = 55;
+      const availableHeight = viewportHeight - headerHeight - theadHeight - tableMargin;
+      maxRows = Math.max(3, Math.min(30, Math.floor(availableHeight / rowHeight)));
+      return maxRows;
+    }
+
+    // Render departures table
+    function renderDepartures() {
+      const tbody = document.getElementById('departure-table-body');
+      tbody.innerHTML = '';
+
+      // Filter by selected routes
+      let filtered = allDepartures;
+      if (selectedRoutes.size > 0 && selectedRoutes.size < availableRoutes.length) {
+        filtered = allDepartures.filter(function(d) {
+          return selectedRoutes.has(d.route_short);
+        });
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="no-departures">No upcoming departures</td></tr>';
+        return;
+      }
+
+      const display = filtered.slice(0, maxRows);
+
+      display.forEach(function(dep) {
+        const row = document.createElement('tr');
+        const colors = getRouteColor(dep.route_short);
+
+        // Is departing soon?
+        if (dep.eta_minutes <= 2) {
+          row.classList.add('departing-soon');
+        }
+
+        // Route cell
+        const routeCell = document.createElement('td');
+        routeCell.innerHTML = '<span class="route-pill" style="background-color: ' + colors.bg + '; color: ' + colors.text + ';">' + dep.route_name + '</span>';
+        routeCell.style.backgroundColor = 'transparent';
+
+        // Destination cell
+        const destCell = document.createElement('td');
+        destCell.textContent = dep.headsign;
+
+        // Departure time cell
+        const timeCell = document.createElement('td');
+        timeCell.textContent = dep.departure_time_display;
+
+        // ETA cell
+        const etaCell = document.createElement('td');
+        if (dep.eta_minutes <= 0) {
+          etaCell.textContent = 'NOW';
+          etaCell.className = 'eta-now';
+        } else if (dep.eta_minutes <= 5) {
+          etaCell.textContent = dep.eta_minutes;
+          etaCell.className = 'eta-soon';
+        } else {
+          etaCell.textContent = dep.eta_minutes;
+          etaCell.className = 'eta-normal';
+        }
+
+        row.append(routeCell, destCell, timeCell, etaCell);
+        tbody.appendChild(row);
+      });
+    }
+
+    // Fetch departures from API
+    async function fetchDepartures() {
+      try {
+        const resp = await fetch('/api/ferry/stops/' + encodeURIComponent(stopCode) + '/departures');
+        const json = await resp.json();
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('departures-table').style.display = 'table';
+
+        // Update header
+        document.getElementById('station-header').innerText = '⛴ ' + (json.stopName || stopCode);
+        document.title = (json.stopName || stopCode) + ' - Ferry Departures';
+
+        allDepartures = json.departures || [];
+
+        // Extract unique routes
+        const routeSet = new Set();
+        allDepartures.forEach(function(d) { routeSet.add(d.route_short); });
+        const newRoutes = Array.from(routeSet).sort();
+
+        // Rebuild route toggles if routes changed
+        if (JSON.stringify(newRoutes) !== JSON.stringify(availableRoutes)) {
+          availableRoutes = newRoutes;
+          if (!hasStartedFiltering) {
+            selectedRoutes = new Set(availableRoutes);
+          }
+
+          const container = document.getElementById('route-toggles');
+          container.innerHTML = '';
+          availableRoutes.forEach(function(route) {
+            const colors = getRouteColor(route);
+            const div = document.createElement('div');
+            div.className = 'route-toggle' + (selectedRoutes.has(route) ? ' active' : '');
+            div.dataset.route = route;
+            div.style.backgroundColor = colors.bg;
+            div.style.color = colors.text;
+            div.textContent = colors.name || route;
+            container.appendChild(div);
+          });
+        }
+
+        updateFilterHint();
+        calculateMaxRows();
+        renderDepartures();
+      } catch (err) {
+        console.error('Error fetching departures:', err);
+        document.getElementById('loading').innerText = 'Error loading departures. Retrying...';
+        document.getElementById('loading').style.display = 'block';
+      }
+    }
+
+    // Handle resize
+    function debounce(fn, delay) {
+      let timer;
+      return function() {
+        clearTimeout(timer);
+        timer = setTimeout(fn, delay);
+      };
+    }
+    const handleResize = debounce(function() {
+      calculateMaxRows();
+      renderDepartures();
+    }, 200);
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+
+    // Init
+    calculateMaxRows();
+    fetchDepartures();
+    setInterval(fetchDepartures, 30000);
+  </script>
+</body>
+</html>
