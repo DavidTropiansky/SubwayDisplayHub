@@ -219,6 +219,29 @@ const ferryStopNames = {
   "s-dr5wbsbe5e-rockawaybeachboulevard~beach79thstreet": "Rockaway Beach Blvd & Beach 79th St"
 };
 
+// Get current NYC timezone offset string (e.g., "-04:00" for EDT, "-05:00" for EST)
+function getNycOffsetString() {
+  const now = new Date();
+  // Create a date string in NYC timezone and extract the offset
+  const nycParts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    timeZoneName: 'longOffset'
+  }).formatToParts(now);
+  const tzPart = nycParts.find(p => p.type === 'timeZoneName');
+  if (tzPart) {
+    // Format: "GMT-04:00" or "GMT-05:00"
+    const match = tzPart.value.match(/GMT([+-]\d{2}:\d{2})/);
+    if (match) return match[1];
+  }
+  // Fallback: compute offset manually
+  const utcStr = now.toLocaleString('en-US', { timeZone: 'UTC' });
+  const nycStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const diffMs = new Date(utcStr) - new Date(nycStr);
+  const diffHrs = Math.round(diffMs / 3600000);
+  const sign = diffHrs >= 0 ? '+' : '-';
+  return sign + String(Math.abs(diffHrs)).padStart(2, '0') + ':00';
+}
+
 // Fetch ferry departures from Transit.land API
 async function fetchFerryDepartures(stopCode) {
   const now = Date.now();
@@ -243,15 +266,30 @@ async function fetchFerryDepartures(stopCode) {
         const departureScheduled = dep.departure?.scheduled_local || dep.departure?.scheduled || dep.departure_time;
         if (!departureScheduled) continue;
 
-        // Parse the departure time
+        // Parse the departure time - always treat as NYC Eastern time
         let departureDate;
         if (dep.departure?.scheduled_local) {
-          departureDate = new Date(dep.departure.scheduled_local);
+          // scheduled_local may or may not have timezone info
+          const raw = dep.departure.scheduled_local;
+          if (raw.includes('+') || raw.includes('Z') || /T\d{2}:\d{2}:\d{2}-\d{2}/.test(raw)) {
+            // Has timezone info - parse directly
+            departureDate = new Date(raw);
+          } else {
+            // No timezone - it's NYC local time, append Eastern offset
+            const nycOffset = getNycOffsetString();
+            departureDate = new Date(raw + nycOffset);
+          }
         } else {
-          // Time-only format like "13:37:00" - construct full datetime
+          // Time-only format like "13:37:00" - construct as NYC Eastern time
           const timeParts = departureScheduled.split(':');
-          departureDate = new Date();
-          departureDate.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), parseInt(timeParts[2] || 0), 0);
+          const nycOffset = getNycOffsetString();
+          const today = new Date();
+          // Get today's date in NYC timezone
+          const nycDateStr = today.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+          const hh = String(parseInt(timeParts[0])).padStart(2, '0');
+          const mi = String(parseInt(timeParts[1])).padStart(2, '0');
+          const ss = String(parseInt(timeParts[2] || 0)).padStart(2, '0');
+          departureDate = new Date(`${nycDateStr}T${hh}:${mi}:${ss}${nycOffset}`);
         }
 
         const etaMs = departureDate.getTime() - now;
@@ -263,12 +301,14 @@ async function fetchFerryDepartures(stopCode) {
         const trip = dep.trip || {};
         const route = trip.route || {};
 
-        // Format departure time for display (12-hour format)
-        let displayHours = departureDate.getHours();
-        const displayMinutes = departureDate.getMinutes();
-        const ampm = displayHours >= 12 ? 'PM' : 'AM';
-        displayHours = displayHours % 12 || 12;
-        const displayTime = displayHours + ':' + (displayMinutes < 10 ? '0' : '') + displayMinutes + ' ' + ampm;
+        // Format departure time for display (12-hour format, always in NYC timezone)
+        const nycTimeStr = departureDate.toLocaleString('en-US', {
+          timeZone: 'America/New_York',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        const displayTime = nycTimeStr;
 
         departures.push({
           route_short: route.route_short_name || route.route_id || 'FRY',
