@@ -815,6 +815,40 @@ app.get('/', (req, res) => {
           <div class="feature-item">Auto-refresh every 30s</div>
         </div>
       </a>
+
+      <a href="/led" class="app-card" style="border-color: rgba(0, 255, 65, 0.3);">
+        <div class="app-icon">
+          <div style="font-size: 64px; text-shadow: 0 0 20px rgba(0,255,65,0.8), 0 0 40px rgba(0,255,65,0.4); color: #00ff41; font-family: monospace; letter-spacing: 4px;">LED</div>
+        </div>
+        <div class="app-title">LED Countdown</div>
+        <div class="app-description">
+          Dot-matrix LED sign inspired by real subway platform displays
+        </div>
+        <div class="feature-list">
+          <div class="feature-item">Green LED dot-matrix aesthetic</div>
+          <div class="feature-item">Real-time ETA countdown</div>
+          <div class="feature-item">Route filtering & badges</div>
+          <div class="feature-item">Weather & live clock</div>
+          <div class="feature-item">Fullscreen kiosk mode</div>
+        </div>
+      </a>
+
+      <a href="/lcd" class="app-card" style="border-color: rgba(96, 165, 250, 0.3);">
+        <div class="app-icon">
+          <div style="font-size: 54px; font-weight: 900; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: -2px; background: linear-gradient(135deg, #f5f5fa 0%, #c4b5fd 80%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">LCD</div>
+        </div>
+        <div class="app-title">LCD Display</div>
+        <div class="app-description">
+          Modern LCD screen showing grouped arrivals with multiple ETAs per destination
+        </div>
+        <div class="feature-list">
+          <div class="feature-item">Route + destination grouping</div>
+          <div class="feature-item">Multiple ETAs per combo</div>
+          <div class="feature-item">Alternating row colors</div>
+          <div class="feature-item">Route filtering & badges</div>
+          <div class="feature-item">Fullscreen kiosk mode</div>
+        </div>
+      </a>
     </div>
   </div>
 </body>
@@ -859,6 +893,28 @@ app.get('/stripmap', (req, res) => {
 // Station display for Strip Map
 app.get('/stripmap/station/:stationId', (req, res) => {
   res.sendFile(path.join(__dirname, 'stripmap-station.html'));
+});
+
+// === LED COUNTDOWN DISPLAY ROUTES ===
+// Station selector for LED Display
+app.get('/led', (req, res) => {
+  res.sendFile(path.join(__dirname, 'led-index.html'));
+});
+
+// Station display for LED Display
+app.get('/led/station/:stationId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'led-station.html'));
+});
+
+// === LCD DISPLAY ROUTES ===
+// Station selector for LCD Display
+app.get('/lcd', (req, res) => {
+  res.sendFile(path.join(__dirname, 'lcd-index.html'));
+});
+
+// Station display for LCD Display
+app.get('/lcd/station/:stationId', (req, res) => {
+  res.sendFile(path.join(__dirname, 'lcd-station.html'));
 });
 
 // === FERRY ROUTES ===
@@ -939,6 +995,7 @@ app.listen(port, '0.0.0.0', () => {
   console.log(`   SubwayDisplay: http://localhost:${port}/display`);
   console.log(`   SubwaySolari: http://localhost:${port}/solari`);
   console.log(`   Strip Map View: http://localhost:${port}/stripmap`);
+  console.log(`   💡 LED Countdown: http://localhost:${port}/led`);
   console.log(`   ⛴ NYC Ferry: http://localhost:${port}/ferry`);
   console.log(`   🚲 Citi Bike: http://localhost:${port}/citibike`);
 });
