@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LCD Display</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #1a1a2e;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    /* Header bar - strip map style */
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      background: #0b0d10;
+      border-bottom: 2px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .weather-display {
+      font-size: 20px;
+      font-weight: bold;
+      color: #e9eef7;
+      min-width: 130px;
+      text-align: left;
+    }
+    .station-header {
+      flex: 1;
+      text-align: center;
+    }
+    .station-name {
+      font-size: 26px;
+      font-weight: bold;
+      color: #e9eef7;
+      text-decoration: overline;
+      margin: 0;
+    }
+    .route-toggles {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 6px;
+    }
+    .route-toggle {
+      display: inline-flex;
+      height: 32px; width: 32px;
+      justify-content: center; align-items: center;
+      border-radius: 50%;
+      font-size: 16px; font-weight: bold;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      cursor: pointer;
+      border: 2px solid transparent;
+      opacity: 0.4;
+      transition: all 0.2s;
+    }
+    .route-toggle.active { opacity: 1; border-color: white; box-shadow: 0 0 10px rgba(255,255,255,0.5); }
+    .route-toggle:hover { opacity: 0.8; }
+    .time-display {
+      font-size: 20px;
+      font-weight: bold;
+      color: #e9eef7;
+      min-width: 130px;
+      text-align: right;
+    }
+    .back-link {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      color: #2f7bff;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 10px 20px;
+      background: rgba(47,123,255,0.1);
+      border: 1px solid rgba(47,123,255,0.3);
+      border-radius: 8px;
+      transition: all 0.2s;
+      z-index: 1000;
+    }
+    .back-link:hover { background: rgba(47,123,255,0.2); border-color: #2f7bff; }
+    .fullscreen-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: transparent;
+      border: 2px solid #2f7bff;
+      color: #2f7bff;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 1000;
+      font-family: inherit;
+    }
+    .fullscreen-btn:hover { background: #2f7bff; color: white; }
+
+    /* Dark/Light Toggle */
+    .theme-toggle {
+      width: 56px;
+      height: 28px;
+      border-radius: 14px;
+      cursor: pointer;
+      border: none;
+      padding: 0;
+      overflow: hidden;
+      transition: background 0.4s;
+      background: linear-gradient(135deg, #1a2744 0%, #2d3a5c 100%);
+      flex-shrink: 0;
+      margin-left: 12px;
+    }
+    .theme-toggle .toggle-track { position: relative; width: 100%; height: 100%; }
+    .theme-toggle .toggle-thumb {
+      position: absolute; top: 2px; left: 2px;
+      width: 24px; height: 24px; border-radius: 50%;
+      transition: all 0.4s cubic-bezier(0.68, -0.15, 0.32, 1.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; background: #e8e8e8;
+    }
+    .theme-toggle .stars { position: absolute; top: 5px; right: 8px; font-size: 7px; color: #fff; opacity: 1; transition: opacity 0.3s; }
+    .theme-toggle .clouds { position: absolute; top: 6px; right: 6px; font-size: 10px; opacity: 0; transition: opacity 0.3s; }
+
+    /* Light mode toggle appearance */
+    body.light-mode .theme-toggle { background: linear-gradient(135deg, #54a0d6 0%, #87ceeb 100%); }
+    body.light-mode .theme-toggle .toggle-thumb { left: 30px; background: #FFD700; box-shadow: 0 0 10px rgba(255,215,0,0.5); }
+    body.light-mode .theme-toggle .stars { opacity: 0; }
+    body.light-mode .theme-toggle .clouds { opacity: 1; }
+
+    /* Light mode overrides */
+    body.light-mode { background: #e8edf2; }
+    body.light-mode .header-bar { background: #f0f4f8; border-bottom-color: #d0d8e0; }
+    body.light-mode .station-name { color: #1a1a2e; }
+    body.light-mode .weather-display { color: #333; }
+    body.light-mode .time-display { color: #333; }
+    body.light-mode .route-toggle.active { border-color: #333; box-shadow: 0 0 8px rgba(0,0,0,0.15); }
+    body.light-mode .lcd-wrapper { background: #e0e5ec; }
+    body.light-mode .arrival-row { background: rgba(255,255,255,0.95); border-color: rgba(0,0,0,0.06); }
+    body.light-mode .arrival-row.arriving { background: rgba(240,230,60,0.7); border-color: rgba(200,190,40,0.3); }
+    body.light-mode .destination { color: #111827; }
+    body.light-mode .eta-box { background: rgba(0,0,0,0.06); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    body.light-mode .eta-number { color: #111827; }
+    body.light-mode .eta-label { color: rgba(0,0,0,0.5); }
+    body.light-mode .back-link { color: #0066aa; background: rgba(0,102,170,0.08); border-color: rgba(0,102,170,0.25); }
+    body.light-mode .fullscreen-btn { color: #0066aa; border-color: #0066aa; }
+    body.light-mode .fullscreen-btn:hover { background: #0066aa; color: white; }
+    body.light-mode .no-data { color: #6b7280; }
+
+    /* Main display area */
+    .lcd-wrapper {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0f0f1a;
+      overflow-y: auto;
+      padding: 16px 20px;
+      gap: 12px;
+    }
+
+    /* Each route+destination row */
+    .arrival-row {
+      display: flex;
+      align-items: center;
+      border-radius: 16px;
+      padding: 14px 18px;
+      gap: 14px;
+      min-height: 72px;
+      transition: opacity 0.3s;
+      position: relative;
+      overflow: hidden;
+    }
+    .arrival-row.arriving {
+      animation: pulse-glow 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: none; }
+      50% { box-shadow: inset 0 0 30px rgba(255,255,255,0.08); }
+    }
+
+    /* Route bullet */
+    .route-bullet {
+      display: inline-flex;
+      width: 50px;
+      height: 50px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 30px;
+      font-weight: bold;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      flex-shrink: 0;
+    }
+
+    /* Destination name */
+    .destination {
+      flex: 1;
+      font-size: 32px;
+      font-weight: 700;
+      color: #e9eef7;
+      letter-spacing: -0.3px;
+      line-height: 1.15;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ETA boxes area */
+    /* Status indicator */
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .status-badge.good { background: rgba(0,147,60,0.15); color: #00933c; }
+    .status-badge.delays { background: rgba(238,53,46,0.15); color: #EE352E; }
+    .status-badge.change { background: rgba(255,165,0,0.15); color: #ff8c00; }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-dot.good { background: #00933c; }
+    .status-dot.delays { background: #EE352E; }
+    .status-dot.change { background: #ff8c00; }
+
+    .eta-boxes {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .eta-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(4px);
+      border-radius: 12px;
+      padding: 6px 10px;
+      min-width: 62px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    .eta-number {
+      font-size: 34px;
+      font-weight: 800;
+      color: #e9eef7;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+    .eta-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.5);
+      line-height: 1;
+      margin-top: 2px;
+    }
+
+    /* Arriving state */
+    .eta-box.arriving-now {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .eta-box.arriving-now .eta-number {
+      animation: blink-text 1s step-end infinite;
+    }
+    @keyframes blink-text {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* Row background: dark default */
+    .arrival-row {
+      background: rgba(30, 32, 48, 0.92);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .arrival-row.arriving {
+      background: rgba(80, 75, 10, 0.88);
+      border-color: rgba(240,230,60,0.3);
+    }
+
+    /* No data state */
+    .no-data {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: #6b7280;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    .fullscreen-hide { display: none !important; }
+
+    /* Responsive sizing */
+    @media (max-width: 700px) {
+      .destination { font-size: 22px; }
+      .eta-number { font-size: 26px; }
+      .route-bullet { width: 40px; height: 40px; font-size: 20px; }
+      .arrival-row { padding: 10px 14px; min-height: 60px; }
+      .eta-box { min-width: 50px; padding: 5px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar" id="headerBar">
+    <div class="weather-display" id="weather-display">Loading weather...</div>
+    <div class="station-header">
+      <h1 class="station-name" id="stationNameLabel">Loading...</h1>
+      <div class="route-toggles" id="route-toggles"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;min-width:130px;justify-content:flex-end;">
+      <div class="time-display" id="time-display"></div>
+      <button class="theme-toggle" id="theme-toggle" title="Toggle light/dark mode">
+        <div class="toggle-track">
+          <div class="toggle-thumb">🌙</div>
+          <div class="stars">✦ ✧ ✦</div>
+          <div class="clouds">☁️</div>
+        </div>
+      </button>
+    </div>
+  </div>
+  <a href="/lcd" class="back-link" id="back-link">← Back to Stations</a>
+  <button class="fullscreen-btn" id="fullscreen-btn">Fullscreen</button>
+
+  <div class="lcd-wrapper" id="lcdWrapper">
+    <div class="no-data" id="noData">Loading arrivals...</div>
+  </div>
+
+  <script>
+    // ── Configuration ──
+    const pathParts = window.location.pathname.split('/');
+    const stationId = pathParts[pathParts.length - 1];
+    let availableRoutes = [];
+    let selectedRoutes = new Set();
+    let hasStartedFiltering = false;
+    let stationName = '';
+
+    const routeColors = {
+      '1': { bg: '#EE352E', text: '#FFFFFF' },
+      '2': { bg: '#EE352E', text: '#FFFFFF' },
+      '3': { bg: '#EE352E', text: '#FFFFFF' },
+      '4': { bg: '#00933C', text: '#FFFFFF' },
+      '5': { bg: '#00933C', text: '#FFFFFF' },
+      '6': { bg: '#00933C', text: '#FFFFFF' },
+      '6X': { bg: '#00933C', text: '#FFFFFF' },
+      '7': { bg: '#B933AD', text: '#FFFFFF' },
+      '7X': { bg: '#B933AD', text: '#FFFFFF' },
+      'A': { bg: '#0039A6', text: '#FFFFFF' },
+      'C': { bg: '#0039A6', text: '#FFFFFF' },
+      'E': { bg: '#0039A6', text: '#FFFFFF' },
+      'B': { bg: '#FF6319', text: '#FFFFFF' },
+      'D': { bg: '#FF6319', text: '#FFFFFF' },
+      'F': { bg: '#FF6319', text: '#FFFFFF' },
+      'FX': { bg: '#FF6319', text: '#FFFFFF' },
+      'M': { bg: '#FF6319', text: '#FFFFFF' },
+      'G': { bg: '#6CBE45', text: '#FFFFFF' },
+      'J': { bg: '#996633', text: '#FFFFFF' },
+      'Z': { bg: '#996633', text: '#FFFFFF' },
+      'L': { bg: '#A7A9AC', text: '#FFFFFF' },
+      'N': { bg: '#FCCC0A', text: '#000000' },
+      'Q': { bg: '#FCCC0A', text: '#000000' },
+      'R': { bg: '#FCCC0A', text: '#000000' },
+      'W': { bg: '#FCCC0A', text: '#000000' },
+      'T': { bg: '#00ADD0', text: '#FFFFFF' },
+      'GS': { bg: '#808183', text: '#FFFFFF' },
+      'SI': { bg: '#0039A6', text: '#FFFFFF' },
+      'SIR': { bg: '#0039A6', text: '#FFFFFF' },
+      'FS': { bg: '#808183', text: '#FFFFFF' },
+      'H': { bg: '#808183', text: '#FFFFFF' }
+    };
+
+    const MAX_ETAS = 3; // Show up to 3 arrival times per combo
+
+    // ── Group arrivals by route+terminal ──
+    function groupArrivals(arrivals) {
+      const groups = {};
+      for (const entry of arrivals) {
+        const key = entry.line + '|' + entry.terminal;
+        if (!groups[key]) {
+          groups[key] = {
+            line: entry.line,
+            terminal: entry.terminal,
+            status: entry.status || 'Good Service',
+            etas: []
+          };
+        }
+        if (groups[key].etas.length < MAX_ETAS) {
+          groups[key].etas.push(entry.scheduled);
+        }
+      }
+      // Sort by route letter/number first, then by first ETA
+      return Object.values(groups).sort((a, b) => {
+        if (a.line !== b.line) return a.line.localeCompare(b.line);
+        return a.etas[0] - b.etas[0];
+      });
+    }
+
+    // ── Render display ──
+    function renderDisplay(arrivals) {
+      const wrapper = document.getElementById('lcdWrapper');
+      const noData = document.getElementById('noData');
+
+      if (!arrivals || arrivals.length === 0) {
+        noData.style.display = 'flex';
+        noData.textContent = 'No upcoming trains';
+        wrapper.querySelectorAll('.arrival-row').forEach(el => el.remove());
+        return;
+      }
+
+      noData.style.display = 'none';
+      const grouped = groupArrivals(arrivals);
+
+      // Build HTML
+      let html = '';
+      for (const group of grouped) {
+        const rc = routeColors[group.line] || { bg: '#666', text: '#fff' };
+        const isArriving = group.etas[0] <= 0;
+
+        html += '<div class="arrival-row' + (isArriving ? ' arriving' : '') + '">';
+
+        // Route bullet
+        html += '<div class="route-bullet" style="background-color:' + rc.bg + ';color:' + rc.text + ';">' + group.line + '</div>';
+
+        // Destination
+        html += '<div class="destination">' + escapeHtml(group.terminal) + '</div>';
+
+        // ETA boxes
+        html += '<div class="eta-boxes">';
+        for (const eta of group.etas) {
+          const isNow = eta <= 0;
+          html += '<div class="eta-box' + (isNow ? ' arriving-now' : '') + '">';
+          html += '<div class="eta-number">' + (isNow ? '0' : eta) + '</div>';
+          html += '<div class="eta-label">min</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+
+        // Status badge
+        const st = group.status || 'Good Service';
+        const stClass = st.includes('Delay') ? 'delays' : (st.includes('Change') ? 'change' : 'good');
+        html += '<div class="status-badge ' + stClass + '">';
+        html += '<div class="status-dot ' + stClass + '"></div>';
+        html += escapeHtml(st);
+        html += '</div>';
+
+        html += '</div>';
+      }
+
+      // Remove old rows and insert new ones
+      wrapper.querySelectorAll('.arrival-row').forEach(el => el.remove());
+      wrapper.insertAdjacentHTML('beforeend', html);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function titleCase(str) {
+      return str.toLowerCase().replace(/(?:^|\s|-|\/)\S/g, ch => ch.toUpperCase());
+    }
+
+    // ── Route loading & filtering ──
+    async function loadRoutes() {
+      try {
+        const resp = await fetch('/api/stations/' + stationId + '/routes');
+        availableRoutes = await resp.json();
+        selectedRoutes = new Set(availableRoutes);
+
+        const container = document.getElementById('route-toggles');
+        if (availableRoutes.length === 0) return;
+        container.innerHTML = availableRoutes.map(route => {
+          const c = routeColors[route] || { bg: '#666', text: '#fff' };
+          return '<div class="route-toggle active" data-route="' + route + '" style="background-color:' + c.bg + ';color:' + c.text + ';">' + route + '</div>';
+        }).join('');
+      } catch (e) {
+        console.error('Error loading routes:', e);
+      }
+    }
+
+    document.getElementById('route-toggles').addEventListener('click', e => {
+      const toggle = e.target.closest('.route-toggle');
+      if (!toggle) return;
+      const route = toggle.dataset.route;
+
+      if (!hasStartedFiltering) {
+        selectedRoutes.clear();
+        selectedRoutes.add(route);
+        hasStartedFiltering = true;
+        document.querySelectorAll('.route-toggle').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.route === route);
+        });
+      } else {
+        if (selectedRoutes.has(route)) {
+          selectedRoutes.delete(route);
+          toggle.classList.remove('active');
+        } else {
+          selectedRoutes.add(route);
+          toggle.classList.add('active');
+        }
+        if (selectedRoutes.size === 0) {
+          selectedRoutes = new Set(availableRoutes);
+          hasStartedFiltering = false;
+          document.querySelectorAll('.route-toggle').forEach(btn => btn.classList.add('active'));
+        }
+        if (selectedRoutes.size === availableRoutes.length) hasStartedFiltering = false;
+      }
+      fetchArrivals();
+    });
+
+    // ── Fetch arrivals ──
+    async function fetchArrivals() {
+      try {
+        let url = '/api/stations/' + stationId + '/arrivals';
+        if (selectedRoutes.size > 0 && selectedRoutes.size < availableRoutes.length) {
+          url += '?routes=' + Array.from(selectedRoutes).join(',');
+        }
+        const resp = await fetch(url);
+        const json = await resp.json();
+
+        stationName = json.stationName || stationId;
+        document.title = stationName + ' – LCD Display';
+        document.getElementById('stationNameLabel').textContent = stationName;
+
+        const arrivals = selectedRoutes.size === 0 ? [] : (json.data || []);
+        renderDisplay(arrivals);
+      } catch (err) {
+        console.error('Error fetching arrivals:', err);
+      }
+    }
+
+    // ── Time display ──
+    function updateTime() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      document.getElementById('time-display').textContent = hours + ':' + (minutes < 10 ? '0' : '') + minutes + ' ' + ampm;
+    }
+    updateTime();
+    setInterval(updateTime, 60000);
+
+    // ── Weather ──
+    function getWeatherEmoji(condition) {
+      const c = condition.toLowerCase();
+      if (c.includes('sunny') || c.includes('clear')) return { emoji: '☀', color: '#FFD700' };
+      if (c.includes('partly cloudy')) return { emoji: '⛅', color: '#FDB813' };
+      if (c.includes('cloudy') || c.includes('overcast')) return { emoji: '☁', color: '#B0B0B0' };
+      if (c.includes('rain') && !c.includes('thunder')) return { emoji: '🌧', color: '#4682B4' };
+      if (c.includes('thunder') || c.includes('storm')) return { emoji: '⛈', color: '#8B008B' };
+      if (c.includes('snow')) return { emoji: '🌨', color: '#E0FFFF' };
+      if (c.includes('fog') || c.includes('mist')) return { emoji: '🌫', color: '#DCDCDC' };
+      return { emoji: '🌤', color: '#FFA500' };
+    }
+    async function fetchWeather() {
+      try {
+        const pointResp = await fetch('https://api.weather.gov/points/40.7128,-74.006');
+        const pointData = await pointResp.json();
+        const stationsResp = await fetch(pointData.properties.observationStations);
+        const stationsData = await stationsResp.json();
+        const sid = stationsData.features[0].properties.stationIdentifier;
+        const obsResp = await fetch('https://api.weather.gov/stations/' + sid + '/observations/latest');
+        const obsData = await obsResp.json();
+        const temp = obsData.properties.temperature.value;
+        const tempF = temp ? Math.round(temp * 9/5 + 32) : '--';
+        const conditions = obsData.properties.textDescription || 'Unknown';
+        const w = getWeatherEmoji(conditions);
+        document.getElementById('weather-display').innerHTML = '<span style="color:' + w.color + ';">' + w.emoji + '</span> ' + tempF + '°F';
+      } catch (e) {
+        document.getElementById('weather-display').textContent = 'Weather unavailable';
+      }
+    }
+    fetchWeather();
+    setInterval(fetchWeather, 600000);
+
+    // ── Theme toggle ──
+    document.getElementById('theme-toggle').addEventListener('click', function() {
+      document.body.classList.toggle('light-mode');
+      const thumb = this.querySelector('.toggle-thumb');
+      thumb.textContent = document.body.classList.contains('light-mode') ? '☀️' : '🌙';
+      localStorage.setItem('lcd-theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
+    });
+    if (localStorage.getItem('lcd-theme') === 'light') {
+      document.body.classList.add('light-mode');
+      document.querySelector('#theme-toggle .toggle-thumb').textContent = '☀️';
+    }
+
+    // ── Fullscreen — header stays visible, controls hide ──
+    let isFullscreen = false;
+    document.getElementById('fullscreen-btn').addEventListener('click', () => {
+      if (!isFullscreen) {
+        document.documentElement.requestFullscreen?.();
+        document.getElementById('back-link').classList.add('fullscreen-hide');
+        document.getElementById('fullscreen-btn').classList.add('fullscreen-hide');
+        document.getElementById('theme-toggle').classList.add('fullscreen-hide');
+        isFullscreen = true;
+      } else {
+        document.exitFullscreen?.();
+        document.getElementById('back-link').classList.remove('fullscreen-hide');
+        document.getElementById('fullscreen-btn').classList.remove('fullscreen-hide');
+        document.getElementById('theme-toggle').classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        document.getElementById('back-link').classList.remove('fullscreen-hide');
+        document.getElementById('fullscreen-btn').classList.remove('fullscreen-hide');
+        document.getElementById('theme-toggle').classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+    });
+
+    // ── Boot ──
+    loadRoutes().then(() => {
+      fetchArrivals();
+      setInterval(fetchArrivals, 30000);
+    });
+  </script>
+</body>
+</html>

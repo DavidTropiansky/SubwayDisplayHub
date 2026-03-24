@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>LED Countdown Display</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a0a;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .control-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 14px;
+      background: #111;
+      border-bottom: 1px solid #222;
+      flex-shrink: 0;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      color: #888;
+      z-index: 10;
+    }
+    .control-bar a {
+      color: #00cc33;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .control-bar a:hover { color: #00ff41; }
+    .route-toggles {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      flex: 1;
+      margin: 0 10px;
+    }
+    .route-toggle {
+      display: inline-flex;
+      height: 24px; width: 24px;
+      justify-content: center; align-items: center;
+      border-radius: 50%;
+      font-size: 12px; font-weight: bold;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      cursor: pointer;
+      border: 2px solid transparent;
+      opacity: 0.3;
+      transition: all 0.15s;
+    }
+    .route-toggle.active {
+      opacity: 1;
+      border-color: white;
+    }
+    .route-toggle:hover { opacity: 0.7; }
+    .fullscreen-btn {
+      background: transparent;
+      border: 1px solid #555;
+      color: #888;
+      padding: 3px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+    .fullscreen-btn:hover { border-color: #00cc33; color: #00cc33; }
+
+    .led-display-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050505;
+      overflow: hidden;
+      padding: 20px;
+    }
+
+    .led-panel {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: #080808;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    /* 3D bezel frame - no inner shadow to avoid fading dots */
+    .led-bezel {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      border: 10px solid #1a1a1a;
+      border-top-color: #2a2a2a;
+      border-left-color: #222;
+      border-right-color: #151515;
+      border-bottom-color: #111;
+      border-radius: 6px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.9);
+    }
+
+    /* Corner screws */
+    .screw {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: radial-gradient(circle, #3a3a3a 30%, #1a1a1a 70%);
+      border-radius: 50%;
+      z-index: 6;
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.1), 0 1px 2px rgba(0,0,0,0.5);
+    }
+    .screw::after {
+      content: '';
+      position: absolute;
+      top: 5px; left: 2px;
+      width: 8px; height: 2px;
+      background: #222;
+      border-radius: 1px;
+    }
+    .screw.tl { top: 2px; left: 2px; }
+    .screw.tr { top: 2px; right: 2px; }
+    .screw.bl { bottom: 2px; left: 2px; }
+    .screw.br { bottom: 2px; right: 2px; }
+
+    canvas#ledCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .fullscreen-hide { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="control-bar" id="controlBar">
+    <a href="/led" id="back-link">← Stations</a>
+    <div class="route-toggles" id="route-toggles"></div>
+    <button class="fullscreen-btn" id="fullscreen-btn">⛶ Fullscreen</button>
+  </div>
+
+  <div class="led-display-wrapper">
+    <div class="led-panel" id="displayWrapper">
+      <canvas id="ledCanvas"></canvas>
+      <div class="led-bezel">
+        <div class="screw tl"></div>
+        <div class="screw tr"></div>
+        <div class="screw bl"></div>
+        <div class="screw br"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Configuration ──
+    const pathParts = window.location.pathname.split('/');
+    const stationId = pathParts[pathParts.length - 1];
+    let availableRoutes = [];
+    let selectedRoutes = new Set();
+    let cachedArrivals = [];
+    let hasStartedFiltering = false;
+    let stationName = '';
+    let cycleIndex = 0;
+    let cycleTimer = null;
+    const CYCLE_INTERVAL = 3000; // ms between cycling
+
+    const routeColors = {
+      '1': { bg: '#EE352E', text: '#FFFFFF' },
+      '2': { bg: '#EE352E', text: '#FFFFFF' },
+      '3': { bg: '#EE352E', text: '#FFFFFF' },
+      '4': { bg: '#00933C', text: '#FFFFFF' },
+      '5': { bg: '#00933C', text: '#FFFFFF' },
+      '6': { bg: '#00933C', text: '#FFFFFF' },
+      '6X': { bg: '#00933C', text: '#FFFFFF' },
+      '7': { bg: '#B933AD', text: '#FFFFFF' },
+      '7X': { bg: '#B933AD', text: '#FFFFFF' },
+      'A': { bg: '#0039A6', text: '#FFFFFF' },
+      'C': { bg: '#0039A6', text: '#FFFFFF' },
+      'E': { bg: '#0039A6', text: '#FFFFFF' },
+      'B': { bg: '#FF6319', text: '#FFFFFF' },
+      'D': { bg: '#FF6319', text: '#FFFFFF' },
+      'F': { bg: '#FF6319', text: '#FFFFFF' },
+      'FX': { bg: '#FF6319', text: '#FFFFFF' },
+      'M': { bg: '#FF6319', text: '#FFFFFF' },
+      'G': { bg: '#6CBE45', text: '#FFFFFF' },
+      'J': { bg: '#996633', text: '#FFFFFF' },
+      'Z': { bg: '#996633', text: '#FFFFFF' },
+      'L': { bg: '#A7A9AC', text: '#FFFFFF' },
+      'N': { bg: '#FCCC0A', text: '#000000' },
+      'Q': { bg: '#FCCC0A', text: '#000000' },
+      'R': { bg: '#FCCC0A', text: '#000000' },
+      'W': { bg: '#FCCC0A', text: '#000000' },
+      'T': { bg: '#00ADD0', text: '#FFFFFF' },
+      'GS': { bg: '#808183', text: '#FFFFFF' },
+      'SI': { bg: '#0039A6', text: '#FFFFFF' },
+      'SIR': { bg: '#0039A6', text: '#FFFFFF' },
+      'FS': { bg: '#808183', text: '#FFFFFF' },
+      'H': { bg: '#808183', text: '#FFFFFF' }
+    };
+
+    // ── Bold 5x7 Dot Matrix Font (each dot is rendered 2x2) ──
+    const FONT_5x7 = {
+      'A': [0b01110,0b10001,0b10001,0b11111,0b10001,0b10001,0b10001],
+      'B': [0b11110,0b10001,0b10001,0b11110,0b10001,0b10001,0b11110],
+      'C': [0b01110,0b10001,0b10000,0b10000,0b10000,0b10001,0b01110],
+      'D': [0b11100,0b10010,0b10001,0b10001,0b10001,0b10010,0b11100],
+      'E': [0b11111,0b10000,0b10000,0b11110,0b10000,0b10000,0b11111],
+      'F': [0b11111,0b10000,0b10000,0b11110,0b10000,0b10000,0b10000],
+      'G': [0b01110,0b10001,0b10000,0b10111,0b10001,0b10001,0b01111],
+      'H': [0b10001,0b10001,0b10001,0b11111,0b10001,0b10001,0b10001],
+      'I': [0b01110,0b00100,0b00100,0b00100,0b00100,0b00100,0b01110],
+      'J': [0b00111,0b00010,0b00010,0b00010,0b00010,0b10010,0b01100],
+      'K': [0b10001,0b10010,0b10100,0b11000,0b10100,0b10010,0b10001],
+      'L': [0b10000,0b10000,0b10000,0b10000,0b10000,0b10000,0b11111],
+      'M': [0b10001,0b11011,0b10101,0b10101,0b10001,0b10001,0b10001],
+      'N': [0b10001,0b11001,0b10101,0b10011,0b10001,0b10001,0b10001],
+      'O': [0b01110,0b10001,0b10001,0b10001,0b10001,0b10001,0b01110],
+      'P': [0b11110,0b10001,0b10001,0b11110,0b10000,0b10000,0b10000],
+      'Q': [0b01110,0b10001,0b10001,0b10001,0b10101,0b10010,0b01101],
+      'R': [0b11110,0b10001,0b10001,0b11110,0b10100,0b10010,0b10001],
+      'S': [0b01110,0b10001,0b10000,0b01110,0b00001,0b10001,0b01110],
+      'T': [0b11111,0b00100,0b00100,0b00100,0b00100,0b00100,0b00100],
+      'U': [0b10001,0b10001,0b10001,0b10001,0b10001,0b10001,0b01110],
+      'V': [0b10001,0b10001,0b10001,0b10001,0b10001,0b01010,0b00100],
+      'W': [0b10001,0b10001,0b10001,0b10101,0b10101,0b10101,0b01010],
+      'X': [0b10001,0b10001,0b01010,0b00100,0b01010,0b10001,0b10001],
+      'Y': [0b10001,0b10001,0b01010,0b00100,0b00100,0b00100,0b00100],
+      'Z': [0b11111,0b00001,0b00010,0b00100,0b01000,0b10000,0b11111],
+      '0': [0b01110,0b10001,0b10011,0b10101,0b11001,0b10001,0b01110],
+      '1': [0b00100,0b01100,0b00100,0b00100,0b00100,0b00100,0b01110],
+      '2': [0b01110,0b10001,0b00001,0b00010,0b00100,0b01000,0b11111],
+      '3': [0b11111,0b00010,0b00100,0b00010,0b00001,0b10001,0b01110],
+      '4': [0b00010,0b00110,0b01010,0b10010,0b11111,0b00010,0b00010],
+      '5': [0b11111,0b10000,0b11110,0b00001,0b00001,0b10001,0b01110],
+      '6': [0b00110,0b01000,0b10000,0b11110,0b10001,0b10001,0b01110],
+      '7': [0b11111,0b00001,0b00010,0b00100,0b01000,0b01000,0b01000],
+      '8': [0b01110,0b10001,0b10001,0b01110,0b10001,0b10001,0b01110],
+      '9': [0b01110,0b10001,0b10001,0b01111,0b00001,0b00010,0b01100],
+      ' ': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00000,0b00000],
+      '.': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00000,0b00100],
+      ',': [0b00000,0b00000,0b00000,0b00000,0b00000,0b00100,0b01000],
+      '-': [0b00000,0b00000,0b00000,0b11111,0b00000,0b00000,0b00000],
+      '/': [0b00001,0b00010,0b00010,0b00100,0b01000,0b01000,0b10000],
+      ':': [0b00000,0b00100,0b00100,0b00000,0b00100,0b00100,0b00000],
+      '!': [0b00100,0b00100,0b00100,0b00100,0b00100,0b00000,0b00100],
+      '\'': [0b00100,0b00100,0b01000,0b00000,0b00000,0b00000,0b00000],
+    };
+
+    // ── Canvas setup ──
+    const canvas = document.getElementById('ledCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let DOT_PITCH = 0;
+    let DOT_SIZE = 0;
+    let COLS = 0;
+    let ROWS = 0;
+    let gridBuffer = [];
+
+    // Colors
+    const COLOR_GREEN = '#00ff41';
+    const COLOR_ORANGE = '#ffaa00';
+    const COLOR_RED = '#ff3333';
+
+    function resizeCanvas() {
+      const wrapper = document.getElementById('displayWrapper');
+      const dpr = window.devicePixelRatio || 1;
+      const w = wrapper.clientWidth;
+      const h = wrapper.clientHeight;
+
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.scale(dpr, dpr);
+
+      // For 2-line bold display we need enough columns for ~30 chars
+      // Each bold char = 12 cols (10 char + 2 gap), so 30*12 = 360 cols
+      const targetCols = Math.max(160, Math.min(360, Math.floor(w / 2.5)));
+      DOT_PITCH = w / targetCols;
+      DOT_SIZE = DOT_PITCH * 0.4;
+
+      COLS = Math.floor(w / DOT_PITCH);
+      ROWS = Math.floor(h / DOT_PITCH);
+
+      gridBuffer = [];
+      for (let r = 0; r < ROWS; r++) {
+        gridBuffer[r] = [];
+        for (let c = 0; c < COLS; c++) {
+          gridBuffer[r][c] = null;
+        }
+      }
+    }
+
+    function clearGrid() {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          gridBuffer[r][c] = null;
+        }
+      }
+    }
+
+    function setDot(row, col, color) {
+      if (row >= 0 && row < ROWS && col >= 0 && col < COLS) {
+        gridBuffer[row][col] = color;
+      }
+    }
+
+    // Draw a bold character (2x2 dots per pixel) from the 5x7 font
+    // Returns the number of dot-columns consumed
+    function drawBoldChar(ch, startRow, startCol, color) {
+      const upper = ch.toUpperCase();
+      const bitmap = FONT_5x7[upper];
+      if (!bitmap) return 12; // space = 5*2 + 2 gap
+      for (let r = 0; r < 7; r++) {
+        for (let c = 0; c < 5; c++) {
+          if (bitmap[r] & (1 << (4 - c))) {
+            // 2x2 block for each "on" pixel
+            const dr = startRow + r * 2;
+            const dc = startCol + c * 2;
+            setDot(dr, dc, color);
+            setDot(dr + 1, dc, color);
+            setDot(dr, dc + 1, color);
+            setDot(dr + 1, dc + 1, color);
+          }
+        }
+      }
+      return 12; // 5*2 + 2 gap
+    }
+
+    // Draw a bold string. Returns total dot-columns used.
+    function drawBoldString(text, startRow, startCol, color, maxCol) {
+      let col = startCol;
+      const limit = maxCol || COLS;
+      for (let i = 0; i < text.length; i++) {
+        if (col + 10 > limit) break; // 5*2=10 dots per char
+        col += drawBoldChar(text[i], startRow, col, color);
+      }
+      return col - startCol;
+    }
+
+
+    // Draw a bold filled circle (for route bullets) using 2x scale
+    // Uses strict < to avoid single-dot poles at the extremes
+    function drawBoldCircle(centerRow, centerCol, radius, fillColor) {
+      const r2 = radius * radius;
+      for (let dr = -radius; dr <= radius; dr++) {
+        for (let dc = -radius; dc <= radius; dc++) {
+          if (dr * dr + dc * dc < r2) {
+            setDot(centerRow + dr, centerCol + dc, fillColor);
+          }
+        }
+      }
+    }
+
+    // Draw route bullet with bold letter inside
+    function drawBoldRouteBullet(route, centerRow, centerCol, radius) {
+      const colors = routeColors[route] || { bg: '#666666', text: '#FFFFFF' };
+      // Filled circle
+      drawBoldCircle(centerRow, centerCol, radius, colors.bg);
+
+      // Route letter(s) centered — at 2x scale, each char is 10 wide, 14 tall
+      const totalW = route.length === 1 ? 10 : (route.length * 12 - 2);
+      const startCol = centerCol - Math.floor(totalW / 2);
+      const startRow = centerRow - 7; // 14/2
+
+      for (let i = 0; i < route.length; i++) {
+        const ch = route[i].toUpperCase();
+        const bitmap = FONT_5x7[ch];
+        if (!bitmap) continue;
+        const cOff = startCol + i * 12;
+        for (let r = 0; r < 7; r++) {
+          for (let c = 0; c < 5; c++) {
+            if (bitmap[r] & (1 << (4 - c))) {
+              const dr = startRow + r * 2;
+              const dc = cOff + c * 2;
+              setDot(dr, dc, colors.text);
+              setDot(dr + 1, dc, colors.text);
+              setDot(dr, dc + 1, colors.text);
+              setDot(dr + 1, dc + 1, colors.text);
+            }
+          }
+        }
+      }
+    }
+
+    // Draw a dotted separator line
+    function drawDottedLine(row, startCol, endCol, color) {
+      for (let c = startCol; c < endCol; c += 3) {
+        setDot(row, c, color);
+      }
+    }
+
+    // ── Render adaptive multi-line LED display ──
+    function renderDisplay() {
+      const wrapper = document.getElementById('displayWrapper');
+      const w = wrapper.clientWidth;
+      const h = wrapper.clientHeight;
+
+      clearGrid();
+
+      const bulletRadius = 11;
+      const lineHeight = Math.max(14, bulletRadius * 2) + 6; // fixed height per row
+      const separatorHeight = 3;
+      const topPad = 4;
+      const availableRows = ROWS - topPad * 2;
+      const maxLines = Math.max(1, Math.floor((availableRows + separatorHeight) / (lineHeight + separatorHeight)));
+
+      if (cachedArrivals.length === 0) {
+        const msg = 'NO TRAINS';
+        const msgW = msg.length * 12;
+        const centerY = Math.floor((ROWS - 14) / 2);
+        drawBoldString(msg, centerY, Math.floor((COLS - msgW) / 2), COLOR_ORANGE);
+        paintCanvas(w, h);
+        return;
+      }
+
+      const totalArrivals = cachedArrivals.length;
+      let staticCount, cyclingEntries;
+
+      if (totalArrivals <= maxLines) {
+        staticCount = totalArrivals;
+        cyclingEntries = [];
+      } else {
+        staticCount = maxLines - 1;
+        cyclingEntries = cachedArrivals.slice(staticCount);
+      }
+
+      let curRow = topPad;
+
+      // Draw static lines
+      for (let i = 0; i < staticCount; i++) {
+        drawArrivalLine(cachedArrivals[i], curRow, bulletRadius, i + 1);
+        curRow += lineHeight;
+        if (i < staticCount - 1 || cyclingEntries.length > 0) {
+          drawDottedLine(curRow, 2, COLS - 2, '#0a3a0a');
+          curRow += separatorHeight;
+        }
+      }
+
+      // Draw cycling last line (if overflow exists)
+      if (cyclingEntries.length > 0) {
+        drawDottedLine(curRow, 2, COLS - 2, '#0a3a0a');
+        curRow += separatorHeight;
+        const idx = cycleIndex % cyclingEntries.length;
+        const displayNum = staticCount + idx + 1;
+        drawArrivalLine(cyclingEntries[idx], curRow, bulletRadius, displayNum);
+      }
+
+      paintCanvas(w, h);
+    }
+
+    // Flash state for arriving trains (toggled by timer)
+    let flashOn = true;
+    setInterval(() => { flashOn = !flashOn; renderDisplay(); }, 500);
+
+    // ── Truncate text at word boundary to fit maxChars ──
+    // Treats spaces and hyphens as break points
+    function truncateAtWord(text, maxChars) {
+      if (text.length <= maxChars) return text;
+      // Find the last break point (space or hyphen) at or before maxChars
+      let lastBreak = -1;
+      for (let i = 0; i <= maxChars && i < text.length; i++) {
+        if (text[i] === ' ' || text[i] === '-') {
+          lastBreak = i;
+        }
+      }
+      if (lastBreak > 0) {
+        // If break is a hyphen, include it; if space, exclude it
+        return text[lastBreak] === '-'
+          ? text.substring(0, lastBreak) // drop the hyphen and everything after
+          : text.substring(0, lastBreak);
+      }
+      // No break point found — hard truncate
+      return text.substring(0, maxChars);
+    }
+
+    function drawArrivalLine(entry, rowY, bulletRadius, displayNum) {
+      const centerRow = rowY + bulletRadius;
+      const isArriving = entry.scheduled <= 0;
+
+      // Row number (e.g., "1.") - offset 6 dots from left to clear bezel
+      const numStr = displayNum + '.';
+      drawBoldString(numStr, centerRow - 7, 6, COLOR_GREEN);
+
+      // Route bullet
+      const bulletCol = numStr.length * 12 + 6 + bulletRadius;
+      drawBoldRouteBullet(entry.line, centerRow, bulletCol, bulletRadius);
+
+      // ETA (right-aligned) — calculate first
+      let etaStr;
+      if (isArriving) {
+        etaStr = '0min';
+      } else {
+        etaStr = entry.scheduled + 'min';
+      }
+      const etaWidth = etaStr.length * 12;
+      const etaCol = COLS - etaWidth - 6;
+
+      // Destination text area — truncate at word boundary if too long
+      const destStartCol = bulletCol + bulletRadius + 4;
+      const destAvailWidth = etaCol - destStartCol - 4;
+      const maxChars = Math.max(1, Math.floor(destAvailWidth / 12));
+      const destText = truncateAtWord(entry.terminal, maxChars);
+      const destColor = isArriving ? COLOR_ORANGE : COLOR_GREEN;
+
+      if (isArriving && !flashOn) {
+        // Flash off - don't draw dest or ETA
+      } else {
+        drawBoldString(destText, centerRow - 7, destStartCol, destColor, etaCol - 4);
+        drawBoldString(etaStr, centerRow - 7, etaCol, COLOR_ORANGE);
+      }
+    }
+
+    function paintCanvas(w, h) {
+      ctx.fillStyle = '#080808';
+      ctx.fillRect(0, 0, w, h);
+
+      // No shadow/glow - clean dots only
+      ctx.shadowBlur = 0;
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cx = c * DOT_PITCH + DOT_PITCH / 2;
+          const cy = r * DOT_PITCH + DOT_PITCH / 2;
+          const color = gridBuffer[r][c];
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, DOT_SIZE, 0, Math.PI * 2);
+
+          if (color) {
+            ctx.fillStyle = color;
+            ctx.fill();
+          } else {
+            // Unlit LED - subtle dark dot
+            ctx.fillStyle = '#0d110d';
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    // ── Cycling timer for overflow last line ──
+    function startCycling() {
+      if (cycleTimer) clearInterval(cycleTimer);
+      cycleTimer = setInterval(() => {
+        // Cycle if there are more arrivals than fit on screen
+        cycleIndex++;
+        renderDisplay();
+      }, CYCLE_INTERVAL);
+    }
+
+    // ── Fullscreen ──
+    let isFullscreen = false;
+    document.getElementById('fullscreen-btn').addEventListener('click', () => {
+      if (!isFullscreen) {
+        document.documentElement.requestFullscreen?.();
+        document.getElementById('controlBar').classList.add('fullscreen-hide');
+        isFullscreen = true;
+      } else {
+        document.exitFullscreen?.();
+        document.getElementById('controlBar').classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        document.getElementById('controlBar').classList.remove('fullscreen-hide');
+        isFullscreen = false;
+      }
+      setTimeout(() => { resizeCanvas(); renderDisplay(); }, 100);
+    });
+
+    // ── Route loading & filtering ──
+    async function loadRoutes() {
+      try {
+        const resp = await fetch('/api/stations/' + stationId + '/routes');
+        availableRoutes = await resp.json();
+        selectedRoutes = new Set(availableRoutes);
+
+        const container = document.getElementById('route-toggles');
+        if (availableRoutes.length === 0) return;
+        container.innerHTML = availableRoutes.map(route => {
+          const c = routeColors[route] || { bg: '#666', text: '#fff' };
+          return '<div class="route-toggle active" data-route="' + route + '" style="background-color:' + c.bg + ';color:' + c.text + ';">' + route + '</div>';
+        }).join('');
+      } catch (e) {
+        console.error('Error loading routes:', e);
+      }
+    }
+
+    document.getElementById('route-toggles').addEventListener('click', e => {
+      const toggle = e.target.closest('.route-toggle');
+      if (!toggle) return;
+      const route = toggle.dataset.route;
+
+      if (!hasStartedFiltering) {
+        selectedRoutes.clear();
+        selectedRoutes.add(route);
+        hasStartedFiltering = true;
+        document.querySelectorAll('.route-toggle').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.route === route);
+        });
+      } else {
+        if (selectedRoutes.has(route)) {
+          selectedRoutes.delete(route);
+          toggle.classList.remove('active');
+        } else {
+          selectedRoutes.add(route);
+          toggle.classList.add('active');
+        }
+        if (selectedRoutes.size === 0) {
+          selectedRoutes = new Set(availableRoutes);
+          hasStartedFiltering = false;
+          document.querySelectorAll('.route-toggle').forEach(btn => btn.classList.add('active'));
+        }
+        if (selectedRoutes.size === availableRoutes.length) hasStartedFiltering = false;
+      }
+      fetchArrivals();
+    });
+
+    // ── Fetch arrivals ──
+    async function fetchArrivals() {
+      try {
+        let url = '/api/stations/' + stationId + '/arrivals';
+        if (selectedRoutes.size > 0 && selectedRoutes.size < availableRoutes.length) {
+          url += '?routes=' + Array.from(selectedRoutes).join(',');
+        }
+        const resp = await fetch(url);
+        const json = await resp.json();
+
+        stationName = json.stationName || stationId;
+        document.title = stationName + ' – LED Display';
+        cachedArrivals = selectedRoutes.size === 0 ? [] : (json.data || []);
+        cycleIndex = 0;
+        renderDisplay();
+      } catch (err) {
+        console.error('Error fetching arrivals:', err);
+      }
+    }
+
+    // ── Resize handler ──
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { resizeCanvas(); renderDisplay(); }, 150);
+    });
+
+    // ── Boot ──
+    resizeCanvas();
+    renderDisplay();
+    loadRoutes().then(() => {
+      fetchArrivals();
+      startCycling();
+      setInterval(fetchArrivals, 30000);
+    });
+  </script>
+</body>
+</html>
