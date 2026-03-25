@@ -786,6 +786,36 @@ app.get('/', (req, res) => {
         </div>
       </a>
 
+      <a href="/led" class="app-card" style="border-color: rgba(0, 255, 65, 0.3);">
+        <div class="app-icon"><img src="/images/LED.png" alt="LED Countdown"></div>
+        <div class="app-title">LED Countdown</div>
+        <div class="app-description">
+          Dot-matrix LED sign inspired by real subway platform displays
+        </div>
+        <div class="feature-list">
+          <div class="feature-item">Green LED dot-matrix aesthetic</div>
+          <div class="feature-item">Real-time ETA countdown</div>
+          <div class="feature-item">Route filtering & badges</div>
+          <div class="feature-item">Weather & live clock</div>
+          <div class="feature-item">Fullscreen kiosk mode</div>
+        </div>
+      </a>
+
+      <a href="/lcd" class="app-card" style="border-color: rgba(96, 165, 250, 0.3);">
+        <div class="app-icon"><img src="/images/LCD.png" alt="LCD Display"></div>
+        <div class="app-title">LCD Display</div>
+        <div class="app-description">
+          Modern LCD screen showing grouped arrivals with multiple ETAs per destination
+        </div>
+        <div class="feature-list">
+          <div class="feature-item">Route + destination grouping</div>
+          <div class="feature-item">Multiple ETAs per combo</div>
+          <div class="feature-item">Alternating row colors</div>
+          <div class="feature-item">Route filtering & badges</div>
+          <div class="feature-item">Fullscreen kiosk mode</div>
+        </div>
+      </a>
+
       <a href="/ferry" class="app-card" style="border-color: rgba(0, 119, 182, 0.3);">
         <div class="app-icon"><img src="/images/NYC_Ferry_Horizontal.png" alt="NYC Ferry"></div>
         <div class="app-title">NYC Ferry</div>
@@ -815,41 +845,13 @@ app.get('/', (req, res) => {
           <div class="feature-item">Auto-refresh every 30s</div>
         </div>
       </a>
-
-      <a href="/led" class="app-card" style="border-color: rgba(0, 255, 65, 0.3);">
-        <div class="app-icon">
-          <div style="font-size: 64px; text-shadow: 0 0 20px rgba(0,255,65,0.8), 0 0 40px rgba(0,255,65,0.4); color: #00ff41; font-family: monospace; letter-spacing: 4px;">LED</div>
-        </div>
-        <div class="app-title">LED Countdown</div>
-        <div class="app-description">
-          Dot-matrix LED sign inspired by real subway platform displays
-        </div>
-        <div class="feature-list">
-          <div class="feature-item">Green LED dot-matrix aesthetic</div>
-          <div class="feature-item">Real-time ETA countdown</div>
-          <div class="feature-item">Route filtering & badges</div>
-          <div class="feature-item">Weather & live clock</div>
-          <div class="feature-item">Fullscreen kiosk mode</div>
-        </div>
-      </a>
-
-      <a href="/lcd" class="app-card" style="border-color: rgba(96, 165, 250, 0.3);">
-        <div class="app-icon">
-          <div style="font-size: 54px; font-weight: 900; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; letter-spacing: -2px; background: linear-gradient(135deg, #f5f5fa 0%, #c4b5fd 80%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">LCD</div>
-        </div>
-        <div class="app-title">LCD Display</div>
-        <div class="app-description">
-          Modern LCD screen showing grouped arrivals with multiple ETAs per destination
-        </div>
-        <div class="feature-list">
-          <div class="feature-item">Route + destination grouping</div>
-          <div class="feature-item">Multiple ETAs per combo</div>
-          <div class="feature-item">Alternating row colors</div>
-          <div class="feature-item">Route filtering & badges</div>
-          <div class="feature-item">Fullscreen kiosk mode</div>
-        </div>
-      </a>
     </div>
+
+    <footer style="margin-top: 80px; padding: 30px 0; border-top: 1px solid rgba(255,255,255,0.1); text-align: center;">
+      <a href="https://davidt.nyc/projects" target="_blank" rel="noopener noreferrer" style="color: #8ab4f8; text-decoration: none; font-size: 1.05em; letter-spacing: 0.5px; transition: color 0.2s;">
+        View more of my projects: davidt.nyc/projects
+      </a>
+    </footer>
   </div>
 </body>
 </html>
