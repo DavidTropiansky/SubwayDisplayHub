@@ -168,7 +168,7 @@
     let stationName = '';
     let cycleIndex = 0;
     let cycleTimer = null;
-    const CYCLE_INTERVAL = 3000; // ms between cycling
+    const CYCLE_INTERVAL = 5000; // ms between cycling
 
     const routeColors = {
       '1': { bg: '#EE352E', text: '#FFFFFF' },
@@ -428,7 +428,8 @@
         cyclingEntries = [];
       } else {
         staticCount = maxLines - 1;
-        cyclingEntries = cachedArrivals.slice(staticCount);
+        // Limit overflow cycling list to 15 arrivals max
+        cyclingEntries = cachedArrivals.slice(staticCount, staticCount + 15);
       }
 
       let curRow = topPad;
@@ -455,9 +456,9 @@
       paintCanvas(w, h);
     }
 
-    // Flash state for arriving trains (toggled by timer)
+    // Flash state for arriving trains (toggled by timer at 1-second intervals)
     let flashOn = true;
-    setInterval(() => { flashOn = !flashOn; renderDisplay(); }, 500);
+    setInterval(() => { flashOn = !flashOn; renderDisplay(); }, 1000);
 
     // ── Truncate text at word boundary to fit maxChars ──
     // Treats spaces and hyphens as break points
@@ -484,9 +485,10 @@
       const centerRow = rowY + bulletRadius;
       const isArriving = entry.scheduled <= 0;
 
-      // Row number (e.g., "1.") - offset 6 dots from left to clear bezel
+      // Row number (e.g., "1.") - amber when arriving, green otherwise (no flash)
       const numStr = displayNum + '.';
-      drawBoldString(numStr, centerRow - 7, 6, COLOR_GREEN);
+      const numColor = isArriving ? COLOR_ORANGE : COLOR_GREEN;
+      drawBoldString(numStr, centerRow - 7, 6, numColor);
 
       // Route bullet
       const bulletCol = numStr.length * 12 + 6 + bulletRadius;
@@ -509,10 +511,13 @@
       const destText = truncateAtWord(entry.terminal, maxChars);
       const destColor = isArriving ? COLOR_ORANGE : COLOR_GREEN;
 
+      // Destination always drawn (amber when arriving, no flash)
+      drawBoldString(destText, centerRow - 7, destStartCol, destColor, etaCol - 4);
+
+      // ETA: only "0min" flashes at 1-second intervals; all other ETAs always shown
       if (isArriving && !flashOn) {
-        // Flash off - don't draw dest or ETA
+        // Flash off — don't draw the 0min text
       } else {
-        drawBoldString(destText, centerRow - 7, destStartCol, destColor, etaCol - 4);
         drawBoldString(etaStr, centerRow - 7, etaCol, COLOR_ORANGE);
       }
     }
