@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Live Map | NYC Subway Display Hub</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080b10;
+      --panel: #111720;
+      --panel-2: #171f2b;
+      --border: rgba(255,255,255,.12);
+      --muted: #91a0b5;
+      --text: #f4f7fb;
+      --accent: #fccc0a;
+      --shadow: 0 18px 50px rgba(0,0,0,.34);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, select { font: inherit; }
+
+    .shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    header {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+      padding: 14px 18px;
+      background: rgba(8,11,16,.92); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 250px; }
+    .brand a { color: var(--muted); text-decoration: none; font-weight: 800; }
+    .brand a:hover { color: white; }
+    h1 { margin: 0; font-size: clamp(1.25rem, 2vw, 1.85rem); letter-spacing: -.03em; }
+    .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 16px #22c55e; }
+
+    .controls { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+    .segmented { display: inline-flex; padding: 4px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+    .segmented button, .icon-button {
+      border: 0; color: var(--muted); background: transparent; cursor: pointer; border-radius: 9px;
+      padding: 9px 13px; font-weight: 800;
+    }
+    .segmented button.active { background: var(--panel-2); color: white; box-shadow: 0 3px 12px rgba(0,0,0,.25); }
+    .icon-button { border: 1px solid var(--border); background: var(--panel); }
+    .icon-button:hover { color: white; border-color: rgba(255,255,255,.28); }
+    select { color: white; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 9px 34px 9px 12px; font-weight: 750; }
+
+    main { min-height: 0; }
+    .statusbar {
+      display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      padding: 10px 18px; color: var(--muted); font-size: .88rem; border-bottom: 1px solid var(--border);
+    }
+
+    .map-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: calc(100vh - 130px); }
+    .canvas-wrap { position: relative; overflow: auto; background: radial-gradient(circle at 45% 35%, #172231 0, #0b1119 42%, #080b10 80%); }
+    #systemMap { width: 100%; min-width: 760px; height: calc(100vh - 130px); min-height: 680px; display: block; }
+    .map-legend {
+      position: absolute; left: 16px; bottom: 16px; max-width: 330px;
+      background: rgba(17,23,32,.93); border: 1px solid var(--border); border-radius: 13px; padding: 11px 13px;
+      box-shadow: var(--shadow); color: var(--muted); font-size: .82rem; line-height: 1.45;
+    }
+
+    aside { border-left: 1px solid var(--border); background: #0c1118; min-height: 0; display: flex; flex-direction: column; }
+    .aside-head { padding: 16px; border-bottom: 1px solid var(--border); }
+    .aside-head strong { font-size: 1.05rem; }
+    .route-filter { display: flex; gap: 7px; flex-wrap: wrap; padding-top: 12px; }
+    .route-chip {
+      width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; display: inline-grid; place-items: center;
+      font-weight: 900; cursor: pointer; opacity: .35; transition: .15s ease;
+    }
+    .route-chip.active { opacity: 1; border-color: white; transform: scale(1.05); }
+    .train-list { overflow: auto; padding: 10px; }
+    .train-card {
+      display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 11px;
+      padding: 12px; margin-bottom: 8px; border: 1px solid var(--border); background: var(--panel); border-radius: 12px; cursor: pointer;
+    }
+    .train-card:hover { background: var(--panel-2); }
+    .route-badge { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-weight: 950; font-size: 1.1rem; }
+    .train-card h3 { margin: 1px 0 3px; font-size: .96rem; }
+    .train-card p { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.4; }
+
+    .strip-page { padding: 18px; max-width: 1500px; margin: 0 auto; }
+    .strip-toolbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .strip-toolbar h2 { margin: 0; font-size: 1.1rem; }
+    .strip-group { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 15px; overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.2); }
+    .strip-title { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--border); }
+    .strip-title strong { flex: 1; }
+    .strip-title span { color: var(--muted); font-size: .86rem; }
+    .strip-scroll { overflow-x: auto; padding: 22px 20px 36px; }
+    .strip-track { position: relative; min-width: 900px; height: 190px; }
+    .track-line { position: absolute; left: 38px; right: 38px; top: 86px; height: 7px; border-radius: 99px; opacity: .85; }
+    .station-node { position: absolute; top: 65px; width: 90px; transform: translateX(-45px); text-align: center; }
+    .station-dot { width: 20px; height: 20px; margin: 11px auto 8px; border: 4px solid white; background: #0b1119; border-radius: 50%; position: relative; z-index: 2; }
+    .station-name { font-size: .72rem; line-height: 1.2; color: var(--muted); max-height: 35px; overflow: hidden; }
+    .train-marker { position: absolute; top: 28px; transform: translateX(-50%); z-index: 5; text-align: center; }
+    .train-marker .route-badge { width: 38px; height: 38px; font-size: 1rem; border: 3px solid white; box-shadow: 0 0 0 4px rgba(0,0,0,.32), 0 8px 18px rgba(0,0,0,.4); }
+    .train-arrow { font-size: 1.05rem; font-weight: 900; margin-top: 3px; }
+    .train-label { margin-top: 4px; color: white; font-size: .7rem; white-space: nowrap; padding: 3px 6px; background: rgba(0,0,0,.75); border-radius: 5px; }
+
+    .empty, .error { padding: 40px 20px; text-align: center; color: var(--muted); }
+    .error { color: #fecaca; }
+    .loading-overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; pointer-events: none; }
+    .loading-pill { padding: 12px 18px; border-radius: 999px; background: rgba(17,23,32,.95); border: 1px solid var(--border); box-shadow: var(--shadow); font-weight: 800; }
+    [hidden] { display: none !important; }
+
+    @media (max-width: 950px) {
+      .map-layout { grid-template-columns: 1fr; }
+      aside { border-left: 0; border-top: 1px solid var(--border); max-height: 420px; }
+      #systemMap { height: 70vh; min-height: 600px; }
+      .brand { min-width: auto; }
+      .controls { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand">
+      <a href="/">← Hub</a>
+      <span class="live-dot" aria-hidden="true"></span>
+      <h1>Live Map</h1>
+    </div>
+    <div class="controls">
+      <div class="segmented" aria-label="Map view">
+        <button id="systemViewButton" class="active" type="button">Entire Map</button>
+        <button id="stripViewButton" type="button">Strip Map</button>
+      </div>
+      <select id="routeSelect" aria-label="Filter by route">
+        <option value="all">All lines</option>
+      </select>
+      <button class="icon-button" id="refreshButton" type="button">Refresh</button>
+      <button class="icon-button" id="fullscreenButton" type="button">Fullscreen</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="statusbar">
+      <span id="summaryText">Loading live trains…</span>
+      <span id="updatedText"></span>
+    </div>
+
+    <section id="systemView" class="map-layout">
+      <div class="canvas-wrap">
+        <svg id="systemMap" viewBox="0 0 1000 1000" role="img" aria-label="Map of arriving subway trains"></svg>
+        <div class="map-legend">
+          A train appears at the station tied to its next stop when the ETA is 0 minutes (0–59 seconds). This is a station-level estimate, not precise tunnel GPS.
+        </div>
+      </div>
+      <aside>
+        <div class="aside-head">
+          <strong>Arriving now</strong>
+          <div id="routeFilter" class="route-filter"></div>
+        </div>
+        <div id="trainList" class="train-list"></div>
+      </aside>
+    </section>
+
+    <section id="stripView" class="strip-page" hidden>
+      <div class="strip-toolbar">
+        <h2>Every arriving train by line and direction</h2>
+        <span id="stripHint" style="color:var(--muted);font-size:.86rem"></span>
+      </div>
+      <div id="stripContainer"></div>
+    </section>
+  </main>
+</div>
+
+<div id="loadingOverlay" class="loading-overlay">
+  <div class="loading-pill">Loading live subway data…</div>
+</div>
+
+<script>
+  const state = {
+    data: null,
+    view: 'system',
+    route: 'all',
+    timer: null
+  };
+
+  const els = {
+    systemView: document.getElementById('systemView'),
+    stripView: document.getElementById('stripView'),
+    systemMap: document.getElementById('systemMap'),
+    trainList: document.getElementById('trainList'),
+    routeFilter: document.getElementById('routeFilter'),
+    routeSelect: document.getElementById('routeSelect'),
+    stripContainer: document.getElementById('stripContainer'),
+    summaryText: document.getElementById('summaryText'),
+    updatedText: document.getElementById('updatedText'),
+    loadingOverlay: document.getElementById('loadingOverlay'),
+    systemViewButton: document.getElementById('systemViewButton'),
+    stripViewButton: document.getElementById('stripViewButton')
+  };
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const createSvg = (name, attrs = {}) => {
+    const el = document.createElementNS(svgNS, name);
+    Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+    return el;
+  };
+
+  function filteredTrains() {
+    if (!state.data) return [];
+    return state.route === 'all'
+      ? state.data.trains
+      : state.data.trains.filter(train => train.routeId === state.route);
+  }
+
+  function setView(view) {
+    state.view = view;
+    const isSystem = view === 'system';
+    els.systemView.hidden = !isSystem;
+    els.stripView.hidden = isSystem;
+    els.systemViewButton.classList.toggle('active', isSystem);
+    els.stripViewButton.classList.toggle('active', !isSystem);
+    render();
+  }
+
+  function setRoute(route) {
+    state.route = route;
+    els.routeSelect.value = route;
+    document.querySelectorAll('.route-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.route === route || (route === 'all' && chip.dataset.route === 'all'));
+    });
+    render();
+  }
+
+  function routeById(id) {
+    return state.data?.routes.find(route => route.id === id) || {
+      id, color: '#64748B', textColor: '#FFFFFF', name: `${id} Line`
+    };
+  }
+
+  function buildRouteControls() {
+    const routesWithTrains = new Set(state.data.trains.map(train => train.routeId));
+    const routes = state.data.routes.filter(route => routesWithTrains.has(route.id));
+
+    els.routeSelect.innerHTML = '<option value="all">All lines</option>' + routes
+      .map(route => `<option value="${route.id}">${route.id} — ${route.name}</option>`)
+      .join('');
+
+    els.routeFilter.innerHTML = '';
+    const allChip = document.createElement('button');
+    allChip.type = 'button';
+    allChip.className = 'route-chip active';
+    allChip.dataset.route = 'all';
+    allChip.textContent = 'ALL';
+    allChip.style.width = '48px';
+    allChip.style.borderRadius = '10px';
+    allChip.style.background = '#293241';
+    allChip.style.color = '#fff';
+    allChip.onclick = () => setRoute('all');
+    els.routeFilter.appendChild(allChip);
+
+    routes.forEach(route => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'route-chip';
+      chip.dataset.route = route.id;
+      chip.textContent = route.id;
+      chip.style.background = route.color;
+      chip.style.color = route.textColor;
+      chip.title = route.name;
+      chip.onclick = () => setRoute(route.id);
+      els.routeFilter.appendChild(chip);
+    });
+  }
+
+  function projectStations(stations) {
+    const usable = stations.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lon));
+    const lats = usable.map(s => s.lat);
+    const lons = usable.map(s => s.lon);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+    const pad = 62;
+    const width = 1000 - pad * 2;
+    const height = 1000 - pad * 2;
+    const projected = new Map();
+
+    usable.forEach(station => {
+      const x = pad + ((station.lon - minLon) / (maxLon - minLon || 1)) * width;
+      const y = pad + (1 - (station.lat - minLat) / (maxLat - minLat || 1)) * height;
+      projected.set(station.id, { ...station, x, y });
+    });
+    return projected;
+  }
+
+  function renderSystemMap() {
+    const trains = filteredTrains();
+    const projected = projectStations(state.data.stations);
+    els.systemMap.innerHTML = '';
+
+    const stationLayer = createSvg('g', { opacity: '.42' });
+    state.data.stations.forEach(station => {
+      const p = projected.get(station.id);
+      if (!p) return;
+      stationLayer.appendChild(createSvg('circle', {
+        cx: p.x, cy: p.y, r: 2.2, fill: '#9aa7b8'
+      }));
+    });
+    els.systemMap.appendChild(stationLayer);
+
+    const patternLayer = createSvg('g');
+    const routesToDraw = state.route === 'all' ? state.data.routes : state.data.routes.filter(r => r.id === state.route);
+    routesToDraw.forEach(route => {
+      const routePatterns = state.data.patterns[route.id] || {};
+      Object.values(routePatterns).forEach(pattern => {
+        const points = pattern.stations.map(s => projected.get(s.id)).filter(Boolean);
+        if (points.length < 2) return;
+        const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+        patternLayer.appendChild(createSvg('path', {
+          d, fill: 'none', stroke: route.color, 'stroke-width': state.route === 'all' ? 2.4 : 5,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: state.route === 'all' ? '.22' : '.48'
+        }));
+      });
+    });
+    els.systemMap.appendChild(patternLayer);
+
+    const grouped = new Map();
+    trains.forEach(train => {
+      const key = `${train.stationId}-${train.routeId}`;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(train);
+    });
+
+    const trainLayer = createSvg('g');
+    grouped.forEach(group => {
+      const train = group[0];
+      const p = projected.get(train.stationId);
+      if (!p) return;
+      const route = routeById(train.routeId);
+      const marker = createSvg('g', {
+        transform: `translate(${p.x} ${p.y})`, tabindex: '0', role: 'button',
+        'aria-label': `${train.routeId} train at ${train.stationName}, toward ${train.destination}`
+      });
+      marker.style.cursor = 'pointer';
+      marker.appendChild(createSvg('circle', { r: 17, fill: route.color, stroke: '#fff', 'stroke-width': 3 }));
+      marker.appendChild(createSvg('circle', { r: 23, fill: 'none', stroke: route.color, 'stroke-width': 2, opacity: '.35' }));
+      const text = createSvg('text', {
+        x: 0, y: 5.5, 'text-anchor': 'middle', fill: route.textColor,
+        'font-size': 15, 'font-weight': 950, 'font-family': 'Arial, sans-serif'
+      });
+      text.textContent = train.routeId;
+      marker.appendChild(text);
+      if (group.length > 1) {
+        marker.appendChild(createSvg('circle', { cx: 17, cy: -17, r: 9, fill: '#fff' }));
+        const count = createSvg('text', { x: 17, y: -13.5, 'text-anchor': 'middle', fill: '#111', 'font-size': 10, 'font-weight': 900 });
+        count.textContent = group.length;
+        marker.appendChild(count);
+      }
+      const title = createSvg('title');
+      title.textContent = `${group.length > 1 ? `${group.length} trains` : `${train.routeId} train`} at ${train.stationName} • ${train.directionLabel} toward ${train.destination}`;
+      marker.appendChild(title);
+      marker.addEventListener('click', () => focusTrain(train.id));
+      trainLayer.appendChild(marker);
+    });
+    els.systemMap.appendChild(trainLayer);
+  }
+
+  function focusTrain(trainId) {
+    const card = document.querySelector(`[data-train-id="${CSS.escape(trainId)}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.animate([{ outline: '3px solid white' }, { outline: '0 solid transparent' }], { duration: 1000 });
+    }
+  }
+
+  function renderTrainList() {
+    const trains = filteredTrains();
+    if (!trains.length) {
+      els.trainList.innerHTML = '<div class="empty">No trains currently have an ETA of 0 minutes for this filter.</div>';
+      return;
+    }
+    els.trainList.innerHTML = trains.map(train => {
+      const route = routeById(train.routeId);
+      return `<article class="train-card" data-train-id="${escapeHtml(train.id)}">
+        <div class="route-badge" style="background:${route.color};color:${route.textColor}">${escapeHtml(train.routeId)}</div>
+        <div>
+          <h3>${escapeHtml(train.stationName)}</h3>
+          <p>${escapeHtml(train.directionArrow)} ${escapeHtml(train.directionLabel)} · toward ${escapeHtml(train.destination)}</p>
+          <p>ETA ${train.etaSeconds}s${train.vehicleId ? ` · vehicle ${escapeHtml(train.vehicleId)}` : ''}</p>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  function getRoutePatterns(routeId) {
+    return Object.values(state.data.patterns[routeId] || {});
+  }
+
+  function renderStripMaps() {
+    const trains = filteredTrains();
+    const routeIds = [...new Set(trains.map(train => train.routeId))]
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    document.getElementById('stripHint').textContent = state.route === 'all'
+      ? `${routeIds.length} active lines`
+      : `${state.route} line only`;
+
+    if (!routeIds.length) {
+      els.stripContainer.innerHTML = '<div class="empty">No trains currently have an ETA of 0 minutes for this filter.</div>';
+      return;
+    }
+
+    const html = [];
+    routeIds.forEach(routeId => {
+      const route = routeById(routeId);
+      const routeTrains = trains.filter(train => train.routeId === routeId);
+      const patterns = getRoutePatterns(routeId);
+      if (!patterns.length) return;
+
+      patterns.forEach(pattern => {
+        const patternTrains = routeTrains.filter(train => train.direction === pattern.direction);
+        if (!patternTrains.length) return;
+        const stations = pattern.stations;
+        const denominator = Math.max(1, stations.length - 1);
+
+        const stationNodes = stations.map((station, index) => {
+          const left = 4 + (index / denominator) * 92;
+          return `<div class="station-node" style="left:${left}%">
+            <div class="station-dot"></div>
+            <div class="station-name" title="${escapeHtml(station.name)}">${escapeHtml(station.name)}</div>
+          </div>`;
+        }).join('');
+
+        const trainMarkers = patternTrains.map(train => {
+          let index = stations.findIndex(station => station.id === train.stationId);
+          if (index < 0) index = Math.max(0, Math.min(stations.length - 1, train.stopIndex));
+          const left = 4 + (index / denominator) * 92;
+          return `<div class="train-marker" style="left:${left}%" title="${escapeHtml(train.stationName)} toward ${escapeHtml(train.destination)}">
+            <div class="route-badge" style="background:${route.color};color:${route.textColor}">${escapeHtml(routeId)}</div>
+            <div class="train-arrow">${escapeHtml(train.directionArrow)}</div>
+            <div class="train-label">${escapeHtml(train.destination)}</div>
+          </div>`;
+        }).join('');
+
+        html.push(`<section class="strip-group">
+          <div class="strip-title">
+            <div class="route-badge" style="background:${route.color};color:${route.textColor}">${escapeHtml(routeId)}</div>
+            <strong>${escapeHtml(pattern.directionLabel)}</strong>
+            <span>${patternTrains.length} train${patternTrains.length === 1 ? '' : 's'} · toward ${escapeHtml(pattern.destination)}</span>
+          </div>
+          <div class="strip-scroll">
+            <div class="strip-track">
+              <div class="track-line" style="background:${route.color}"></div>
+              ${stationNodes}
+              ${trainMarkers}
+            </div>
+          </div>
+        </section>`);
+      });
+    });
+
+    els.stripContainer.innerHTML = html.join('') || '<div class="empty">No route pattern is available for these trains yet.</div>';
+  }
+
+  function renderStatus() {
+    const count = filteredTrains().length;
+    els.summaryText.textContent = `${count} train${count === 1 ? '' : 's'} arriving now${state.route === 'all' ? ' across the system' : ` on the ${state.route} line`}`;
+    const generated = new Date(state.data.generatedAt);
+    els.updatedText.textContent = `Updated ${generated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}`;
+  }
+
+  function render() {
+    if (!state.data) return;
+    renderStatus();
+    if (state.view === 'system') {
+      renderSystemMap();
+      renderTrainList();
+    } else {
+      renderStripMaps();
+    }
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>'"]/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    })[char]);
+  }
+
+  async function loadData(force = false) {
+    els.loadingOverlay.hidden = false;
+    try {
+      const response = await fetch(`/api/live-map${force ? '?refresh=1' : ''}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Request failed (${response.status})`);
+      state.data = await response.json();
+      buildRouteControls();
+      if (state.route !== 'all' && !state.data.routes.some(route => route.id === state.route)) state.route = 'all';
+      render();
+      clearTimeout(state.timer);
+      state.timer = setTimeout(() => loadData(false), (state.data.refreshSeconds || 15) * 1000);
+    } catch (error) {
+      els.summaryText.textContent = 'Unable to load live subway data';
+      const message = `<div class="error">${escapeHtml(error.message)}. Try refreshing in a moment.</div>`;
+      els.trainList.innerHTML = message;
+      els.stripContainer.innerHTML = message;
+    } finally {
+      els.loadingOverlay.hidden = true;
+    }
+  }
+
+  els.systemViewButton.onclick = () => setView('system');
+  els.stripViewButton.onclick = () => setView('strip');
+  els.routeSelect.onchange = event => setRoute(event.target.value);
+  document.getElementById('refreshButton').onclick = () => loadData(true);
+  document.getElementById('fullscreenButton').onclick = async () => {
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+    else await document.exitFullscreen();
+  };
+
+  loadData();
+</script>
+</body>
+</html>

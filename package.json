@@ -1,11 +1,11 @@
 {
   "name": "nyc-subway-display-hub",
   "version": "1.0.0",
-  "description": "Unified NYC Subway Display Hub integrating SubwayDisplay and SubwaySolari",
-  "main": "app.js",
+  "description": "Unified NYC Subway Display Hub with live system and strip-map train tracking",
+  "main": "server.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "node app.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [
     "nyc",
@@ -13,7 +13,8 @@
     "arrivals",
     "display",
     "solari",
-    "split-flap"
+    "split-flap",
+    "live-map"
   ],
   "author": "",
   "license": "MIT",
