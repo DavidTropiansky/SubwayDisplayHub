@@ -2,10 +2,11 @@
   "name": "nyc-subway-display-hub",
   "version": "1.0.0",
   "description": "Unified NYC Subway Display Hub with live system and strip-map train tracking",
-  "main": "server.js",
+  "main": "app.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node app.js",
+    "dev": "node app.js",
+    "start:compat": "node server.js"
   },
   "keywords": [
     "nyc",
