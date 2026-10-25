@@ -75,6 +75,22 @@
             font-size: 0.9em; color: #aaa;
         }
         .stats-bar span { font-weight: 600; color: #0073cf; }
+
+        .finder { background:rgba(0,115,207,.12); border:1px solid rgba(0,115,207,.35); padding:18px; border-radius:12px; margin-bottom:24px; }
+        .finder h2 { font-size:1.2rem; margin-bottom:7px; }
+        .finder p { color:#bac9d6; font-size:.9rem; margin-bottom:12px; line-height:1.5; }
+        .finder-controls { display:flex; gap:10px; flex-wrap:wrap; }
+        .finder button, .finder select { padding:11px 12px; border-radius:8px; border:1px solid #4381ae; font:inherit; }
+        .finder button { background:#0073cf; color:white; cursor:pointer; font-weight:600; }
+        .finder button:disabled { opacity:.55; cursor:wait; }
+        .finder select { background:#17354a; color:white; flex:1; min-width:180px; max-width:100%; }
+        .finder-message { margin-top:12px; color:#e0edf6; font-size:.9rem; }
+        .finder-results { margin-top:14px; display:grid; gap:8px; }
+        .finder-result { border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:12px; background:rgba(0,0,0,.2); color:inherit; text-decoration:none; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+        .finder-result:hover, .finder-result:focus { background:rgba(0,115,207,.25); }
+        .finder-result small { display:block; color:#a8c3d8; margin-top:5px; }
+        .finder-tag { white-space:nowrap; font-size:.83rem; font-weight:700; color:#ffd95d; }
+        @media (max-width:540px) { .container { padding:22px 15px; } .finder-controls > * { width:100%; } .station-meta { gap:5px; } }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: rgba(0,115,207,0.3); border-radius: 10px; }
@@ -89,6 +105,19 @@
         </div>
         <div class="subtitle">Dock Availability</div>
         <div class="stats-bar" id="stats-bar"></div>
+
+        <section class="finder" aria-label="Find electric bike stations">
+            <h2>⚡ Find nearby e-bikes</h2>
+            <p>Use your location or choose a dock. We prioritize docks with e-bikes and <strong>zero classic bikes</strong>, then 1 classic bike, 2, and so on. Within each tier, closest comes first.</p>
+            <div class="finder-controls">
+                <button id="locateBtn" type="button">📍 Use my location</button>
+                <select id="originStation" aria-label="Choose a starting Citi Bike dock">
+                    <option value="">Or choose a starting dock…</option>
+                </select>
+            </div>
+            <div class="finder-message" id="finderMessage" role="status" aria-live="polite">Choose a starting point to see nearby docks.</div>
+            <div class="finder-results" id="finderResults"></div>
+        </section>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Search for a station..." autocomplete="off">
         </div>
@@ -98,6 +127,118 @@
     </div>
     <script>
         let allStations = [];
+
+
+        let finderOrigin = null;
+        const finderMessage = document.getElementById('finderMessage');
+        const finderResults = document.getElementById('finderResults');
+        const originStation = document.getElementById('originStation');
+        const locateBtn = document.getElementById('locateBtn');
+
+        function distanceKm(lat1, lon1, lat2, lon2) {
+            const rad = Math.PI / 180, dLat = (lat2-lat1)*rad, dLon = (lon2-lon1)*rad;
+            const h = Math.sin(dLat/2)**2 + Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
+            return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+        }
+
+        function formatDistance(km) {
+            return km < 1 ? Math.round(km*1000) + ' m' : km.toFixed(2) + ' km';
+        }
+
+        function renderFinder() {
+            if (!finderOrigin) return;
+            // Only present working, rentable docks with at least one available e-bike.
+            const candidates = allStations.filter(s =>
+                s.is_installed && s.is_renting && s.ebikes > 0 &&
+                Number.isFinite(s.lat) && Number.isFinite(s.lon) &&
+                s.station_id !== finderOrigin.stationId
+            ).map(s => ({
+                ...s,
+                distance: distanceKm(finderOrigin.lat, finderOrigin.lon, s.lat, s.lon)
+            }));
+            const closest = [...allStations].filter(s =>
+                s.is_installed && s.is_renting && Number.isFinite(s.lat) && Number.isFinite(s.lon)
+            ).map(s => ({...s, distance: distanceKm(finderOrigin.lat, finderOrigin.lon, s.lat, s.lon)}))
+              .sort((x,y) => x.distance-y.distance)[0];
+            // Search a walkable neighborhood first; expand only if nothing suitable exists.
+            const radii = [1, 2, 5, Infinity];
+            const radius = radii.find(r => candidates.some(s => s.distance <= r));
+            const nearby = candidates.filter(s => s.distance <= radius)
+                .sort((x,y) => x.classic_bikes-y.classic_bikes || x.distance-y.distance).slice(0, 8);
+            finderResults.replaceChildren();
+            if (!nearby.length) {
+                finderMessage.textContent = 'No rentable stations with available e-bikes were found in the current feed.';
+                return;
+            }
+            const radiusText = radius === Infinity ? 'across the network' : 'within ' + radius + ' km';
+            finderMessage.textContent = finderOrigin.label +
+                ' · ' + radiusText + '. Ranked by fewest classic bikes, then distance.' +
+                (finderOrigin.stationId ? '' : (closest ? ' Closest dock: ' + closest.name + ' (' + formatDistance(closest.distance) + ').' : ''));
+            nearby.forEach(s => {
+                const link = document.createElement('a');
+                link.className = 'finder-result';
+                link.href = '/citibike/station/' + encodeURIComponent(s.station_id);
+                const info = document.createElement('span');
+                const name = document.createElement('strong');
+                name.textContent = s.name;
+                const extra = document.createElement('small');
+                extra.textContent = formatDistance(s.distance) + ' straight-line · ⚡ ' + s.ebikes + ' e-bikes · 🚲 ' + s.classic_bikes + ' classic';
+                info.append(name,extra);
+                const tag = document.createElement('span');
+                tag.className = 'finder-tag';
+                tag.textContent = s.classic_bikes === 0 ? 'E-bike only' : s.classic_bikes + ' classic';
+                link.append(info,tag);
+                finderResults.appendChild(link);
+            });
+        }
+
+        originStation.addEventListener('change', () => {
+            const s = allStations.find(st => st.station_id === originStation.value);
+            if (s) {
+                finderOrigin = {lat:s.lat, lon:s.lon, label:'From ' + s.name, stationId:s.station_id};
+                renderFinder();
+            } else {
+                finderOrigin = null;
+                finderResults.replaceChildren();
+                finderMessage.textContent = 'Choose a starting point to see nearby docks.';
+            }
+        });
+        locateBtn.addEventListener('click', () => {
+            if (!navigator.geolocation) {
+                finderMessage.textContent = 'Location is unavailable in this browser. Select a dock instead.';
+                return;
+            }
+            locateBtn.disabled = true;
+            finderMessage.textContent = 'Requesting your location…';
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    locateBtn.disabled = false;
+                    originStation.value = '';
+                    finderOrigin = {lat:pos.coords.latitude, lon:pos.coords.longitude, label:'From your location'};
+                    renderFinder();
+                },
+                err => {
+                    locateBtn.disabled = false;
+                    finderMessage.textContent = 'Location unavailable or permission denied. Please select a starting dock instead.';
+                },
+                {enableHighAccuracy:true, timeout:12000, maximumAge:60000}
+            );
+        });
+
+        function populateFinderStationOptions() {
+            const previous = originStation.value || new URLSearchParams(location.search).get('from') || '';
+            originStation.replaceChildren(new Option('Or choose a starting dock…',''));
+            allStations.filter(s => s.is_installed && s.is_renting)
+                .forEach(s => originStation.add(new Option(s.name, s.station_id)));
+            if (previous && allStations.some(s => s.station_id === previous)) {
+                originStation.value = previous;
+                const s = allStations.find(s => s.station_id === previous);
+                if (!finderOrigin || finderOrigin.stationId) {
+                    finderOrigin = {lat:s.lat, lon:s.lon, label:'From ' + s.name, stationId:s.station_id};
+                }
+            }
+            if (finderOrigin) renderFinder();
+        }
 
         async function loadStations() {
             try {
@@ -115,6 +256,7 @@
                     '<span>' + totalDocks + '</span> docks';
 
                 displayStations(allStations);
+                populateFinderStationOptions();
             } catch (err) {
                 document.getElementById('stationsList').innerHTML =
                     '<div class="no-results">Error loading stations. Please refresh.</div>';
