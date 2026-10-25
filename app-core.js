@@ -967,6 +967,44 @@ app.get('/api/citibike/stations/:stationId', async (req, res) => {
 });
 
 
+
+// Valhalla's native route response encodes shapes as polyline6 strings.
+// Decode at the API boundary so the browser always receives [longitude, latitude] pairs.
+function decodeValhallaPolyline6(encoded) {
+  if (typeof encoded !== 'string') return null;
+  const coordinates = [];
+  let index = 0, lat = 0, lon = 0;
+  function nextValue() {
+    let value = 0, shift = 0, byte;
+    do {
+      if (index >= encoded.length || shift > 30) throw new Error('Malformed route geometry');
+      byte = encoded.charCodeAt(index++) - 63;
+      if (byte < 0 || byte > 63) throw new Error('Malformed route geometry');
+      value += (byte & 31) * Math.pow(2, shift);
+      shift += 5;
+    } while (byte >= 32);
+    return (value % 2 ? -(Math.floor(value / 2) + 1) : Math.floor(value / 2));
+  }
+  try {
+    while (index < encoded.length) {
+      lat += nextValue();
+      lon += nextValue();
+      coordinates.push([lon / 1e6, lat / 1e6]);
+      if (coordinates.length > 100000) return null;
+    }
+    return coordinates.length >= 2 ? coordinates : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function normalizeValhallaShape(shape) {
+  if (typeof shape === 'string') return decodeValhallaPolyline6(shape);
+  if (shape && Array.isArray(shape.coordinates)) return shape.coordinates;
+  if (Array.isArray(shape)) return shape;
+  return null;
+}
+
 // Bicycle routing proxy used by the Citi Bike multi-leg planner.
 // The public Valhalla service can be rate limited; never silently substitute driving routes.
 app.post('/api/citibike/cycle-route', async (req, res) => {
@@ -994,14 +1032,23 @@ app.post('/api/citibike/cycle-route', async (req, res) => {
     });
     if (!response.ok) return res.status(502).json({error:'Cycling router unavailable ('+response.status+').'});
     const data = await response.json();
-    const summary = data.trip?.summary;
+    const summary = data.trip?.summary || data.trip?.legs?.[0]?.summary;
     const leg = data.trip?.legs?.[0];
-    const geometry = leg?.shape;
-    if (!summary || !geometry || !Array.isArray(geometry.coordinates)) {
-      return res.status(502).json({error:'Cycling router returned an invalid route.'});
+    const coordinates = normalizeValhallaShape(leg?.shape);
+    if (!Number.isFinite(summary?.time) || !Number.isFinite(summary?.length) ||
+        !coordinates || !coordinates.every(p => Array.isArray(p) && p.length >= 2 &&
+          Number.isFinite(p[0]) && Number.isFinite(p[1]) &&
+          p[0] >= -74.5 && p[0] <= -73.4 && p[1] >= 40.3 && p[1] <= 41.2)) {
+      console.warn('Unexpected Valhalla cycling route response', {
+        hasTrip: !!data.trip,
+        shapeType: typeof leg?.shape,
+        shapeFormat: leg?.shape?.type || null,
+        hasSummary: !!summary
+      });
+      return res.status(502).json({error:'Cycling router returned an unsupported route format.'});
     }
     res.set('Cache-Control','no-store');
-    res.json({minutes:summary.time/60, kilometers:summary.length, coordinates:geometry.coordinates});
+    res.json({minutes:summary.time/60, kilometers:summary.length, coordinates});
   } catch (err) {
     res.status(502).json({error:'Cycling directions temporarily unavailable. Please retry.'});
   } finally {
