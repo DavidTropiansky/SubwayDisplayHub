@@ -57,6 +57,12 @@
     .map-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; min-height: calc(100vh - 130px); }
     .canvas-wrap { position: relative; overflow: auto; background: radial-gradient(circle at 45% 35%, #172231 0, #0b1119 42%, #080b10 80%); }
     #systemMap { width: 100%; min-width: 760px; height: calc(100vh - 130px); min-height: 680px; display: block; }
+    .map-zoom-controls { position:absolute; top:16px; left:16px; z-index:4; display:flex; flex-direction:column; gap:7px; }
+    .map-zoom-controls button { width:43px; height:43px; border:1px solid var(--border); border-radius:10px; background:rgba(17,23,32,.96); color:white; font-size:24px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); }
+    .map-zoom-controls button:last-child { font-size:13px; width:auto; padding:0 8px; }
+    .map-zoom-controls button:hover { background:#293241; }
+    #systemMap { touch-action:none; cursor:grab; user-select:none; }
+    #systemMap.dragging { cursor:grabbing; }
     .map-legend {
       position: absolute; left: 16px; bottom: 16px; max-width: 330px;
       background: rgba(17,23,32,.93); border: 1px solid var(--border); border-radius: 13px; padding: 11px 13px;
@@ -145,6 +151,11 @@
     <section id="systemView" class="map-layout">
       <div class="canvas-wrap">
         <svg id="systemMap" viewBox="0 0 1000 1000" role="img" aria-label="Map of arriving subway trains"></svg>
+        <div class="map-zoom-controls" aria-label="Map zoom controls">
+          <button id="zoomInButton" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          <button id="zoomOutButton" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+          <button id="resetZoomButton" type="button" aria-label="Reset map zoom" title="Reset view">Reset</button>
+        </div>
         <div class="map-legend">
           A train appears at the station tied to its next stop when the ETA is 0 minutes (0–59 seconds). This is a station-level estimate, not precise tunnel GPS.
         </div>
@@ -201,6 +212,62 @@
     Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
     return el;
   };
+
+  // Keep the camera on the SVG viewBox so redraws and live updates preserve zoom.
+  const mapCamera = { x: 0, y: 0, width: 1000, height: 1000 };
+  const activePointers = new Map();
+  let previousGesture = null;
+  const MIN_VIEW_SIZE = 125;
+  const MAX_VIEW_SIZE = 1000;
+
+  function applyCamera() {
+    els.systemMap.setAttribute('viewBox',
+      `${mapCamera.x} ${mapCamera.y} ${mapCamera.width} ${mapCamera.height}`);
+  }
+
+  function svgPoint(clientX, clientY) {
+    const rect = els.systemMap.getBoundingClientRect();
+    return {
+      x: mapCamera.x + ((clientX - rect.left) / rect.width) * mapCamera.width,
+      y: mapCamera.y + ((clientY - rect.top) / rect.height) * mapCamera.height
+    };
+  }
+
+  function limitCamera() {
+    mapCamera.width = Math.max(MIN_VIEW_SIZE, Math.min(MAX_VIEW_SIZE, mapCamera.width));
+    mapCamera.height = mapCamera.width; // square viewBox and preserve aspect ratio
+    mapCamera.x = Math.max(0, Math.min(1000 - mapCamera.width, mapCamera.x));
+    mapCamera.y = Math.max(0, Math.min(1000 - mapCamera.height, mapCamera.y));
+    applyCamera();
+  }
+
+  function zoomMap(factor, anchorX, anchorY) {
+    const cx = Number.isFinite(anchorX) ? anchorX : mapCamera.x + mapCamera.width / 2;
+    const cy = Number.isFinite(anchorY) ? anchorY : mapCamera.y + mapCamera.height / 2;
+    const oldSize = mapCamera.width;
+    const size = Math.max(MIN_VIEW_SIZE, Math.min(MAX_VIEW_SIZE, oldSize * factor));
+    mapCamera.x = cx - (cx - mapCamera.x) * size / oldSize;
+    mapCamera.y = cy - (cy - mapCamera.y) * size / oldSize;
+    mapCamera.width = mapCamera.height = size;
+    limitCamera();
+  }
+
+  function resetMap() {
+    Object.assign(mapCamera, { x:0, y:0, width:1000, height:1000 });
+    applyCamera();
+  }
+
+  function gestureSnapshot() {
+    const points = [...activePointers.values()];
+    if (!points.length) return null;
+    const a = points[0];
+    const b = points[1] || points[0];
+    return {
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+      distance: points.length > 1 ? Math.hypot(b.x - a.x, b.y - a.y) : 0
+    };
+  }
 
   function filteredTrains() {
     if (!state.data) return [];
@@ -501,6 +568,49 @@
       els.loadingOverlay.hidden = true;
     }
   }
+
+  document.getElementById('zoomInButton').onclick = () => zoomMap(0.75);
+  document.getElementById('zoomOutButton').onclick = () => zoomMap(1 / 0.75);
+  document.getElementById('resetZoomButton').onclick = resetMap;
+
+  els.systemMap.addEventListener('wheel', event => {
+    event.preventDefault();
+    const point = svgPoint(event.clientX, event.clientY);
+    zoomMap(event.deltaY < 0 ? 0.85 : 1 / 0.85, point.x, point.y);
+  }, { passive: false });
+
+  els.systemMap.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    activePointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
+    els.systemMap.setPointerCapture(event.pointerId);
+    previousGesture = gestureSnapshot();
+    els.systemMap.classList.add('dragging');
+  });
+  els.systemMap.addEventListener('pointermove', event => {
+    if (!activePointers.has(event.pointerId)) return;
+    activePointers.set(event.pointerId, { x:event.clientX, y:event.clientY });
+    const current = gestureSnapshot();
+    if (previousGesture && current) {
+      const rect = els.systemMap.getBoundingClientRect();
+      const anchor = svgPoint(current.x, current.y);
+      if (current.distance > 0 && previousGesture.distance > 0) {
+        zoomMap(previousGesture.distance / current.distance, anchor.x, anchor.y);
+      }
+      mapCamera.x -= (current.x - previousGesture.x) / rect.width * mapCamera.width;
+      mapCamera.y -= (current.y - previousGesture.y) / rect.height * mapCamera.height;
+      limitCamera();
+    }
+    previousGesture = current;
+  });
+  const endPointer = event => {
+    activePointers.delete(event.pointerId);
+    previousGesture = gestureSnapshot();
+    if (!activePointers.size) els.systemMap.classList.remove('dragging');
+  };
+  els.systemMap.addEventListener('pointerup', endPointer);
+  els.systemMap.addEventListener('pointercancel', endPointer);
+  els.systemMap.addEventListener('lostpointercapture', endPointer);
+  applyCamera();
 
   els.systemViewButton.onclick = () => setView('system');
   els.stripViewButton.onclick = () => setView('strip');
