@@ -966,6 +966,49 @@ app.get('/api/citibike/stations/:stationId', async (req, res) => {
   res.json(station);
 });
 
+
+// Bicycle routing proxy used by the Citi Bike multi-leg planner.
+// The public Valhalla service can be rate limited; never silently substitute driving routes.
+app.post('/api/citibike/cycle-route', async (req, res) => {
+  const points = req.body && req.body.points;
+  if (!Array.isArray(points) || points.length !== 2 ||
+      !points.every(p => Number.isFinite(p?.lat) && Number.isFinite(p?.lon) &&
+        p.lat >= 40.45 && p.lat <= 41.05 && p.lon >= -74.35 && p.lon <= -73.65)) {
+    return res.status(400).json({error:'Two valid NYC-area coordinates are required.'});
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 14000);
+  try {
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch('https://valhalla1.openstreetmap.de/route', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','User-Agent':'SubwayDisplayHub/1.0 (Citi Bike route planner)'},
+      body:JSON.stringify({
+        locations:points.map(p=>({lat:p.lat,lon:p.lon})),
+        costing:'bicycle',
+        units:'kilometers',
+        shape_format:'geojson',
+        directions_type:'none'
+      }),
+      signal:controller.signal
+    });
+    if (!response.ok) return res.status(502).json({error:'Cycling router unavailable ('+response.status+').'});
+    const data = await response.json();
+    const summary = data.trip?.summary;
+    const leg = data.trip?.legs?.[0];
+    const geometry = leg?.shape;
+    if (!summary || !geometry || !Array.isArray(geometry.coordinates)) {
+      return res.status(502).json({error:'Cycling router returned an invalid route.'});
+    }
+    res.set('Cache-Control','no-store');
+    res.json({minutes:summary.time/60, kilometers:summary.length, coordinates:geometry.coordinates});
+  } catch (err) {
+    res.status(502).json({error:'Cycling directions temporarily unavailable. Please retry.'});
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
 // CitiBike station selector page
 app.get('/citibike', (req, res) => {
   res.sendFile(path.join(__dirname, 'citibike-index.html'));

@@ -77,6 +77,23 @@
         }
         .stats-bar span { font-weight: 600; color: #0073cf; }
 
+
+        .route-planner {background:rgba(7,16,28,.42);border:1px solid rgba(70,169,242,.35);padding:18px;border-radius:12px;margin-bottom:20px}
+        .route-planner h2 {font-size:1.25rem;margin-bottom:7px}
+        .route-planner p {font-size:.88rem;line-height:1.5;color:#bbcbd8;margin:8px 0}
+        .route-fields {display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .route-fields label {display:block;font-size:.85rem;margin-bottom:5px}
+        .route-planner select {width:100%;background:#17354a;color:#fff;border:1px solid #4381ae;padding:10px;border-radius:8px}
+        .route-actions {display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+        .route-actions button {background:#0073cf;color:#fff;border:0;border-radius:8px;padding:11px 16px;font-weight:bold;cursor:pointer}
+        .route-actions button:disabled {opacity:.5;cursor:wait}
+        #routeMap {height:390px;width:100%;overflow:hidden;position:relative;border-radius:10px;z-index:0;margin-top:12px}
+        #routeMap[hidden],#routeDetails[hidden] {display:none!important}
+        .route-step {padding:12px 0;border-bottom:1px solid rgba(255,255,255,.15)}
+        .route-step strong {display:block;margin-bottom:4px}
+        .route-step small {color:#bfd2e2}
+        .route-warning {color:#ffe196!important}
+        @media(max-width:540px){.route-fields{grid-template-columns:1fr}}
         .finder { background:rgba(0,115,207,.12); border:1px solid rgba(0,115,207,.35); padding:18px; border-radius:12px; margin-bottom:24px; }
         .finder h2 { font-size:1.2rem; margin-bottom:7px; }
         .finder p { color:#bac9d6; font-size:.9rem; margin-bottom:12px; line-height:1.5; }
@@ -118,6 +135,22 @@
         <div class="subtitle">Dock Availability</div>
         <div class="stats-bar" id="stats-bar"></div>
 
+
+        <section class="route-planner" aria-label="Electric bike route planner">
+            <h2>⚡ E-Bike Route Planner</h2>
+            <p>Plan trips with dock changes before the ride-time threshold. Intermediate stops prioritize available e-bikes and fewer classic bikes; availability cannot be reserved.</p>
+            <div class="route-fields">
+                <div><label for="routeFrom">Start dock</label><select id="routeFrom"><option value="location">📍 Closest dock to my location</option></select></div>
+                <div><label for="routeTo">Destination dock</label><select id="routeTo"><option value="">Choose destination…</option></select></div>
+                <div><label for="routeLimit">Maximum minutes per ride</label><select id="routeLimit"><option value="35">35 minutes</option><option value="40" selected>40 minutes (recommended)</option><option value="45">45 minutes</option></select></div>
+                <div><label for="routePreference">Transfer preference</label><select id="routePreference"><option value="electric">Prioritize 0 classic bikes</option><option value="distance">Prioritize fewer detours</option></select></div>
+            </div>
+            <div class="route-actions"><button type="button" id="routePlanBtn">Plan e-bike journey</button><button type="button" id="routeRecheckBtn" hidden>Recheck &amp; replan</button></div>
+            <p id="routeStatus" role="status" aria-live="polite">Choose a destination dock to begin.</p>
+            <div id="routeMap" hidden aria-label="Planned bicycle route map"></div>
+            <div id="routeDetails" hidden></div>
+            <p class="route-warning">Travel times are estimates, not guarantees. Recheck e-bike and dock availability before each transfer. Actual Citi Bike pricing and ride rules depend on your plan.</p>
+        </section>
         <section class="finder" aria-label="Find electric bike stations">
             <h2>⚡ Find nearby e-bikes</h2>
             <p>Use your location or choose a dock. We prioritize docks with e-bikes and <strong>zero classic bikes</strong>, then 1 classic bike, 2, and so on. Within each tier, closest comes first.</p>
@@ -151,6 +184,197 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         let allStations = [];
+
+        // Route planner: actual bicycle-road routing with station-change validation.
+        const routeFrom = document.getElementById('routeFrom');
+        const routeTo = document.getElementById('routeTo');
+        const routeLimit = document.getElementById('routeLimit');
+        const routePreference = document.getElementById('routePreference');
+        const routeStatus = document.getElementById('routeStatus');
+        const routePlanBtn = document.getElementById('routePlanBtn');
+        const routeRecheckBtn = document.getElementById('routeRecheckBtn');
+        const routeDetails = document.getElementById('routeDetails');
+        const routeMapEl = document.getElementById('routeMap');
+        let routeMap = null, routeLayers = null, routeUserLocation = null, routeRequestId = 0;
+
+        function updateRouteOptions() {
+            const oldFrom=routeFrom.value, oldTo=routeTo.value;
+            routeFrom.replaceChildren(new Option('📍 Closest dock to my location','location'));
+            routeTo.replaceChildren(new Option('Choose destination…',''));
+            allStations.filter(s=>s.is_installed && Number.isFinite(s.lat) && Number.isFinite(s.lon))
+                .forEach(s => {
+                    routeFrom.add(new Option(s.name,s.station_id));
+                    routeTo.add(new Option(s.name,s.station_id));
+                });
+            routeFrom.value=oldFrom || 'location';
+            if(!routeFrom.value) routeFrom.value='location';
+            routeTo.value=oldTo;
+        }
+
+        async function bikeRoute(a,b) {
+            const response = await fetch('/api/citibike/cycle-route',{
+                method:'POST',headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({points:[{lat:a.lat,lon:a.lon},{lat:b.lat,lon:b.lon}]})
+            });
+            const data=await response.json();
+            if(!response.ok || !Number.isFinite(data.minutes) || !Array.isArray(data.coordinates))
+                throw Error(data.error || 'Cycling directions unavailable.');
+            return data;
+        }
+        function straightDistance(a,b) {return distanceKm(a.lat,a.lon,b.lat,b.lon);}
+        function routeDistanceToShape(st,coordinates) {
+            // Distance to sampled cycling route points, in km.
+            let nearest=Infinity;
+            const jump=Math.max(1,Math.floor(coordinates.length/120));
+            for(let i=0;i<coordinates.length;i+=jump)
+                nearest=Math.min(nearest,distanceKm(st.lat,st.lon,coordinates[i][1],coordinates[i][0]));
+            return nearest;
+        }
+        async function currentOrigin() {
+            if(routeFrom.value!=='location') {
+                const st=allStations.find(s=>s.station_id===routeFrom.value);
+                if(!st) throw Error('Select a valid starting dock.');
+                return st;
+            }
+            if(!routeUserLocation) {
+                if(!navigator.geolocation) throw Error('Location unavailable. Select a starting dock.');
+                routeUserLocation=await new Promise((resolve,reject)=>
+                    navigator.geolocation.getCurrentPosition(p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude}),
+                        ()=>reject(Error('Please allow location access or select a starting dock.')),
+                        {enableHighAccuracy:true,timeout:12000,maximumAge:60000}));
+            }
+            const stations=allStations.filter(s=>s.is_installed && s.is_renting && s.ebikes>0 &&
+                Number.isFinite(s.lat) && Number.isFinite(s.lon))
+                .sort((a,b)=>straightDistance(a,routeUserLocation)-straightDistance(b,routeUserLocation));
+            if(!stations.length) throw Error('No available e-bike pickup dock found.');
+            return stations[0];
+        }
+        function eligibleTransfer(s,destination,visited) {
+            return s.is_installed && s.is_renting && s.is_returning && s.ebikes>0 &&
+                s.num_docks_available>0 && s.station_id!==destination.station_id &&
+                !visited.has(s.station_id) && Number.isFinite(s.lat) && Number.isFinite(s.lon);
+        }
+        async function calculateBikeJourney(origin,dest,limit,runId) {
+            const steps=[],visited=new Set([origin.station_id]);
+            let current=origin;
+            for(let leg=0;leg<7;leg++) {
+                if(runId!==routeRequestId) throw Error('Route replaced.');
+                routeStatus.textContent='Calculating bicycle leg '+(leg+1)+'…';
+                const direct=await bikeRoute(current,dest);
+                if(direct.minutes<=limit) {
+                    steps.push({from:current,to:dest,route:direct});
+                    return steps;
+                }
+                if(leg===6) throw Error('Route needs too many transfers; try a shorter trip.');
+                // Prioritize stations along the cycling corridor, with a reachable leg length.
+                const options=allStations.filter(s=>eligibleTransfer(s,dest,visited) &&
+                    straightDistance(current,s)>0.25 &&
+                    straightDistance(current,s)<direct.kilometers*(limit/direct.minutes)*1.05 &&
+                    straightDistance(s,dest)<straightDistance(current,dest)*0.97 &&
+                    routeDistanceToShape(s,direct.coordinates)<1.1);
+                options.sort((a,b)=>{
+                    const target=limit*0.80;
+                    const estimate=s=>(straightDistance(current,s)/Math.max(direct.kilometers,.01))*direct.minutes;
+                    const score=s=>
+                        (routePreference.value==='electric' ? s.classic_bikes*3.2 : s.classic_bikes*.15)+
+                        Math.abs(estimate(s)-target)*.25+
+                        routeDistanceToShape(s,direct.coordinates)*11+
+                        (s.num_docks_available===1?4:0);
+                    return score(a)-score(b);
+                });
+                let choice=null;
+                // Validate with street-based cycling duration, never use straight-line time for a committed stop.
+                for(const candidate of options.slice(0,14)) {
+                    const partial=await bikeRoute(current,candidate).catch(()=>null);
+                    if(partial && partial.minutes<=limit && partial.minutes>=limit*.35) {
+                        const remaining=await bikeRoute(candidate,dest).catch(()=>null);
+                        if(remaining && remaining.minutes<direct.minutes && 
+                            partial.minutes+remaining.minutes<=direct.minutes+16) {
+                            choice={station:candidate,route:partial};
+                            break;
+                        }
+                    }
+                }
+                if(!choice) throw Error('No safe intermediate e-bike transfer station was found along this route. Try another destination or a higher leg limit.');
+                steps.push({from:current,to:choice.station,route:choice.route});
+                visited.add(choice.station.station_id);
+                current=choice.station;
+            }
+            throw Error('Unable to find a complete ride plan.');
+        }
+        function renderBikeJourney(steps) {
+            routeDetails.hidden=false;
+            routeMapEl.hidden=false;
+            routeDetails.replaceChildren();
+            if(!routeMap) {
+                routeMap=L.map(routeMapEl,{scrollWheelZoom:false});
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+                    attribution:'&copy; OpenStreetMap contributors',maxZoom:19
+                }).addTo(routeMap);
+                routeLayers=L.layerGroup().addTo(routeMap);
+            }
+            routeLayers.clearLayers();
+            const bounds=[];
+            const nodes=[steps[0].from,...steps.map(s=>s.to)];
+            nodes.forEach((s,i)=>{
+                const stop=L.circleMarker([s.lat,s.lon],{radius:9,color:'#fff',weight:2,fillColor:i===0?'#0073cf':i===nodes.length-1?'#e2a22c':'#39a968',fillOpacity:1}).addTo(routeLayers);
+                stop.bindPopup((i===0?'Start: ':i===nodes.length-1?'Finish: ':'Change e-bike: ')+s.name);
+                bounds.push([s.lat,s.lon]);
+            });
+            steps.forEach((step,i)=>{
+                const coords=step.route.coordinates.map(p=>[p[1],p[0]]);
+                L.polyline(coords,{color:i%2===0?'#29a3ff':'#58e4a0',weight:5,opacity:.9}).addTo(routeLayers);
+                const item=document.createElement('div');
+                item.className='route-step';
+                const title=document.createElement('strong');
+                title.textContent='Leg '+(i+1)+': '+step.from.name+' → '+step.to.name;
+                const meta=document.createElement('small');
+                meta.textContent=Math.ceil(step.route.minutes)+' min cycling · '+step.route.kilometers.toFixed(1)+' km';
+                const bikes=document.createElement('p');
+                bikes.textContent=i<steps.length-1 ?
+                    'Dock & switch bikes here: ⚡ '+step.to.ebikes+' e-bikes, 🚲 '+step.to.classic_bikes+' classic, 🅿 '+step.to.num_docks_available+' free docks (current)' :
+                    'Destination: 🅿 '+step.to.num_docks_available+' free docks (current)';
+                const link=document.createElement('a');
+                link.href='/citibike/station/'+encodeURIComponent(step.to.station_id);
+                link.textContent='View dock availability';
+                link.style.color='#65bdff';
+                item.append(title,meta,bikes,link);
+                routeDetails.appendChild(item);
+            });
+            requestAnimationFrame(()=>{routeMap.invalidateSize();routeMap.fitBounds(bounds,{padding:[28,28],maxZoom:15});});
+            const rideMinutes=steps.reduce((n,s)=>n+s.route.minutes,0);
+            routeStatus.textContent=steps.length+' ride'+(steps.length===1?'':'s')+' · '+Math.round(rideMinutes)+' min estimated cycling · '+(steps.length-1)+' e-bike transfer'+(steps.length===2?'':'s')+'. Transfer and waiting time are additional.';
+        }
+        async function planBikeJourney() {
+            const runId=++routeRequestId;
+            routePlanBtn.disabled=true;
+            routeRecheckBtn.hidden=true;
+            routeDetails.hidden=true;
+            routeMapEl.hidden=true;
+            routeStatus.textContent='Checking live bike availability…';
+            try {
+                const response=await fetch('/api/citibike/stations',{cache:'no-store'});
+                if(!response.ok) throw Error('Citi Bike availability unavailable.');
+                allStations=await response.json();
+                const origin=await currentOrigin();
+                const dest=allStations.find(s=>s.station_id===routeTo.value);
+                if(!dest) throw Error('Choose a destination dock.');
+                if(!origin.is_renting || origin.ebikes<1) throw Error('Starting dock has no available e-bikes.');
+                if(!dest.is_returning || dest.num_docks_available<1) throw Error('Destination has no free return docks.');
+                if(origin.station_id===dest.station_id) throw Error('Choose different starting and destination docks.');
+                const steps=await calculateBikeJourney(origin,dest,Number(routeLimit.value),runId);
+                if(runId!==routeRequestId) return;
+                renderBikeJourney(steps);
+                routeRecheckBtn.hidden=false;
+            } catch(e) {
+                if(runId===routeRequestId) routeStatus.textContent=e.message;
+            } finally {
+                if(runId===routeRequestId) routePlanBtn.disabled=false;
+            }
+        }
+        routePlanBtn.addEventListener('click',planBikeJourney);
+        routeRecheckBtn.addEventListener('click',planBikeJourney);
+
 
 
         let finderOrigin = null;
@@ -372,6 +596,7 @@
 
                 displayStations(allStations);
                 populateFinderStationOptions();
+                updateRouteOptions();
             } catch (err) {
                 document.getElementById('stationsList').innerHTML =
                     '<div class="no-results">Error loading stations. Please refresh.</div>';
