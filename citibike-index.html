@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Citi Bike Dock Availability</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzxD3sSda/5ZbSoQqfL1edugho=" crossorigin="">
+    <link rel="stylesheet" href="/images/citibike-leaflet.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -90,7 +90,7 @@
         .finder-switch { display:flex; gap:8px; margin-top:14px; }
         .finder-switch button { flex:1; background:#1d3c53; }
         .finder-switch button[aria-pressed="true"] { background:#0073cf; }
-        #finderMap { height:380px; border-radius:10px; margin-top:14px; z-index:0; background:#20394a; }
+        #finderMap { position:relative; display:block; width:100%; height:380px; overflow:hidden; border-radius:10px; margin-top:14px; z-index:0; background:#20394a; }
         #finderMap[hidden], #finderResults[hidden], .finder-switch[hidden] { display:none !important; }
         .map-legend { margin-top:10px; display:flex; flex-wrap:wrap; gap:12px; color:#cedde7; font-size:.8rem; }
         .map-legend[hidden] { display:none; }
