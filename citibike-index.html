@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Citi Bike Dock Availability</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzxD3sSda/5ZbSoQqfL1edugho=" crossorigin="">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -86,6 +87,17 @@
         .finder select { background:#17354a; color:white; flex:1; min-width:180px; max-width:100%; }
         .finder-message { margin-top:12px; color:#e0edf6; font-size:.9rem; }
         .finder-results { margin-top:14px; display:grid; gap:8px; }
+        .finder-switch { display:flex; gap:8px; margin-top:14px; }
+        .finder-switch button { flex:1; background:#1d3c53; }
+        .finder-switch button[aria-pressed="true"] { background:#0073cf; }
+        #finderMap { height:380px; border-radius:10px; margin-top:14px; z-index:0; background:#20394a; }
+        #finderMap[hidden], #finderResults[hidden], .finder-switch[hidden] { display:none !important; }
+        .map-legend { margin-top:10px; display:flex; flex-wrap:wrap; gap:12px; color:#cedde7; font-size:.8rem; }
+        .map-legend[hidden] { display:none; }
+        .map-key { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; }
+        .ebike-marker { border:2px solid #fff; border-radius:50%; box-shadow:0 1px 5px #172836; width:22px; height:22px; display:flex; justify-content:center; align-items:center; font-size:11px; color:#172836; font-weight:bold; }
+        .origin-marker { background:#0073cf; border:3px solid white; width:20px; height:20px; border-radius:50%; box-shadow:0 1px 7px #123; }
+        .leaflet-popup-content a { color:#005caa; }
         .finder-result { border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:12px; background:rgba(0,0,0,.2); color:inherit; text-decoration:none; display:flex; justify-content:space-between; align-items:center; gap:12px; }
         .finder-result:hover, .finder-result:focus { background:rgba(0,115,207,.25); }
         .finder-result small { display:block; color:#a8c3d8; margin-top:5px; }
@@ -116,7 +128,18 @@
                 </select>
             </div>
             <div class="finder-message" id="finderMessage" role="status" aria-live="polite">Choose a starting point to see nearby docks.</div>
+            <div class="finder-switch" id="finderSwitch" hidden aria-label="Display results as list or map">
+                <button id="showList" type="button" aria-pressed="true">☰ List</button>
+                <button id="showMap" type="button" aria-pressed="false">🗺 Map</button>
+            </div>
             <div class="finder-results" id="finderResults"></div>
+            <div id="finderMap" hidden role="region" aria-label="Map showing your starting point and nearby e-bike docks"></div>
+            <div id="mapLegend" class="map-legend" hidden>
+                <span><i class="map-key" style="background:#0073cf"></i>Start</span>
+                <span><i class="map-key" style="background:#39a968"></i>0 classic</span>
+                <span><i class="map-key" style="background:#f4b942"></i>1 classic</span>
+                <span><i class="map-key" style="background:#8999ab"></i>2+ classic</span>
+            </div>
         </section>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Search for a station..." autocomplete="off">
@@ -125,6 +148,7 @@
             <div class="loading-text">Loading stations...</div>
         </div>
     </div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         let allStations = [];
 
@@ -134,6 +158,89 @@
         const finderResults = document.getElementById('finderResults');
         const originStation = document.getElementById('originStation');
         const locateBtn = document.getElementById('locateBtn');
+        const finderSwitch = document.getElementById('finderSwitch');
+        const mapElement = document.getElementById('finderMap');
+        const mapLegend = document.getElementById('mapLegend');
+        const showList = document.getElementById('showList');
+        const showMap = document.getElementById('showMap');
+        let viewMode = 'list', finderMap = null, markerLayer = null;
+        let lastMapOrigin = null;
+
+        function changeFinderView(mode) {
+            viewMode = mode;
+            const mapped = mode === 'map';
+            finderResults.hidden = mapped;
+            mapElement.hidden = !mapped;
+            mapLegend.hidden = !mapped;
+            showMap.setAttribute('aria-pressed', String(mapped));
+            showList.setAttribute('aria-pressed', String(!mapped));
+            if (mapped) {
+                if (!window.L) {
+                    mapElement.hidden = true;
+                    mapLegend.hidden = true;
+                    finderResults.hidden = false;
+                    showMap.setAttribute('aria-pressed','false');
+                    showList.setAttribute('aria-pressed','true');
+                    finderMessage.textContent += ' Map library could not load; showing list instead.';
+                    viewMode = 'list';
+                    return;
+                }
+                if (!finderMap) {
+                    finderMap = L.map(mapElement, { scrollWheelZoom:false });
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                        maxZoom:19
+                    }).addTo(finderMap);
+                    markerLayer = L.layerGroup().addTo(finderMap);
+                }
+                // Hidden containers have no dimensions until they become visible.
+                requestAnimationFrame(() => {
+                    finderMap.invalidateSize();
+                    if (lastMapOrigin) drawFinderMap(lastMapOrigin.origin, lastMapOrigin.stations);
+                });
+            }
+        }
+        showList.addEventListener('click', () => changeFinderView('list'));
+        showMap.addEventListener('click', () => changeFinderView('map'));
+
+        function mapIcon(color, origin) {
+            return L.divIcon({
+                className:'',
+                html:origin ? '<div class="origin-marker"></div>' :
+                    '<div class="ebike-marker" style="background:' + color + '">⚡</div>',
+                iconSize:origin ? [20,20] : [22,22], iconAnchor:origin ? [10,10] : [11,11]
+            });
+        }
+        function drawFinderMap(origin, stations) {
+            if (!finderMap || !markerLayer || viewMode !== 'map') return;
+            markerLayer.clearLayers();
+            const bounds = [[origin.lat,origin.lon]];
+            L.marker([origin.lat,origin.lon], {icon:mapIcon('#0073cf',true),zIndexOffset:1000})
+                .addTo(markerLayer).bindPopup(origin.label);
+            stations.forEach(st => {
+                const color = st.classic_bikes === 0 ? '#39a968' : st.classic_bikes === 1 ? '#f4b942' : '#8999ab';
+                const popup = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = st.name;
+                const info = document.createElement('p');
+                info.textContent = formatDistance(st.distance) + ' straight-line · ⚡ ' + st.ebikes +
+                    ' e-bikes · 🚲 ' + st.classic_bikes + ' classic';
+                const stationLink = document.createElement('a');
+                stationLink.href = '/citibike/station/' + encodeURIComponent(st.station_id);
+                stationLink.textContent = 'View station';
+                const directions = document.createElement('a');
+                directions.href = 'https://www.google.com/maps/dir/?api=1&destination=' +
+                    encodeURIComponent(st.lat + ',' + st.lon) + '&travelmode=walking';
+                directions.target = '_blank';
+                directions.rel = 'noopener noreferrer';
+                directions.textContent = 'Walking directions';
+                popup.append(title,info,stationLink,document.createTextNode(' · '),directions);
+                L.marker([st.lat,st.lon],{icon:mapIcon(color,false)})
+                    .addTo(markerLayer).bindPopup(popup);
+                bounds.push([st.lat,st.lon]);
+            });
+            finderMap.fitBounds(bounds,{padding:[28,28],maxZoom:16});
+        }
 
         function distanceKm(lat1, lon1, lat2, lon2) {
             const rad = Math.PI / 180, dLat = (lat2-lat1)*rad, dLon = (lon2-lon1)*rad;
@@ -166,6 +273,9 @@
             const nearby = candidates.filter(s => s.distance <= radius)
                 .sort((x,y) => x.classic_bikes-y.classic_bikes || x.distance-y.distance).slice(0, 8);
             finderResults.replaceChildren();
+            finderSwitch.hidden = !nearby.length;
+            lastMapOrigin = {origin:finderOrigin,stations:nearby};
+            if (viewMode === 'map' && window.L && finderMap) drawFinderMap(finderOrigin,nearby);
             if (!nearby.length) {
                 finderMessage.textContent = 'No rentable stations with available e-bikes were found in the current feed.';
                 return;
@@ -200,6 +310,11 @@
             } else {
                 finderOrigin = null;
                 finderResults.replaceChildren();
+                finderSwitch.hidden = true;
+                mapElement.hidden = true;
+                mapLegend.hidden = true;
+                lastMapOrigin = null;
+                if (markerLayer) markerLayer.clearLayers();
                 finderMessage.textContent = 'Choose a starting point to see nearby docks.';
             }
         });
