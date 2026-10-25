@@ -223,6 +223,15 @@
   function applyCamera() {
     els.systemMap.setAttribute('viewBox',
       `${mapCamera.x} ${mapCamera.y} ${mapCamera.width} ${mapCamera.height}`);
+    // Counter-scale icons when viewBox zoom changes: stops and trains move, badges stay readable.
+    const markerScale = 0.72 * mapCamera.width / 1000;
+    els.systemMap.querySelectorAll('[data-map-marker]').forEach(marker => {
+      marker.setAttribute('transform',
+        `translate(${marker.dataset.x} ${marker.dataset.y}) scale(${markerScale})`);
+    });
+    els.systemMap.querySelectorAll('[data-map-station]').forEach(dot => {
+      dot.setAttribute('r', Math.max(0.65, 2.2 * mapCamera.width / 1000));
+    });
   }
 
   function svgPoint(clientX, clientY) {
@@ -365,7 +374,7 @@
       const p = projected.get(station.id);
       if (!p) return;
       stationLayer.appendChild(createSvg('circle', {
-        cx: p.x, cy: p.y, r: 2.2, fill: '#9aa7b8'
+        cx: p.x, cy: p.y, r: 2.2, fill: '#9aa7b8', 'data-map-station': 'true'
       }));
     });
     els.systemMap.appendChild(stationLayer);
@@ -380,7 +389,7 @@
         const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
         patternLayer.appendChild(createSvg('path', {
           d, fill: 'none', stroke: route.color, 'stroke-width': state.route === 'all' ? 2.4 : 5,
-          'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: state.route === 'all' ? '.22' : '.48'
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'vector-effect': 'non-scaling-stroke', opacity: state.route === 'all' ? '.22' : '.48'
         }));
       });
     });
@@ -400,7 +409,8 @@
       if (!p) return;
       const route = routeById(train.routeId);
       const marker = createSvg('g', {
-        transform: `translate(${p.x} ${p.y})`, tabindex: '0', role: 'button',
+        transform: `translate(${p.x} ${p.y})`, 'data-map-marker': 'true',
+        'data-x': p.x, 'data-y': p.y, tabindex: '0', role: 'button',
         'aria-label': `${train.routeId} train at ${train.stationName}, toward ${train.destination}`
       });
       marker.style.cursor = 'pointer';
@@ -425,6 +435,7 @@
       trainLayer.appendChild(marker);
     });
     els.systemMap.appendChild(trainLayer);
+    applyCamera();
   }
 
   function focusTrain(trainId) {
