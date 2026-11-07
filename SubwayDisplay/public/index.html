@@ -198,16 +198,18 @@
         <h1>🚇 NYC SUBWAY</h1>
         <div class="subtitle">Table Display</div>
         
-        <label class="mode-option"><input type="checkbox" id="dualMode"> Add a second station (side-by-side display)</label>
+        <label class="mode-option"><input type="checkbox" id="dualMode"> Show multiple stations (up to 4)</label>
         <div class="selection-panel" id="selectionPanel">
             <div class="selection-help" id="selectionHelp">Select your first station below.</div>
             <div class="selected-stations">
                 <div><span>Station 1</span><strong id="firstStation">Not selected</strong></div>
                 <div><span>Station 2</span><strong id="secondStation">Not selected</strong></div>
+                <div><span>Station 3</span><strong id="thirdStation">Not selected</strong></div>
+                <div><span>Station 4</span><strong id="fourthStation">Not selected</strong></div>
             </div>
             <div class="selection-actions">
                 <button id="clearBoards" type="button">Reset</button>
-                <button id="viewBoards" type="button" disabled>View both boards</button>
+                <button id="viewBoards" type="button" disabled>View selected boards</button>
             </div>
         </div>
         <div class="search-box">
@@ -229,12 +231,14 @@
             document.getElementById('selectionPanel').classList.toggle('visible', dualMode.checked);
             document.getElementById('firstStation').textContent = chosenStations[0]?.name || 'Not selected';
             document.getElementById('secondStation').textContent = chosenStations[1]?.name || 'Not selected';
-            document.getElementById('viewBoards').disabled = chosenStations.length !== 2;
+            document.getElementById('thirdStation').textContent = chosenStations[2]?.name || 'Not selected';
+            document.getElementById('fourthStation').textContent = chosenStations[3]?.name || 'Not selected';
+            document.getElementById('viewBoards').disabled = chosenStations.length < 2;
             document.getElementById('selectionHelp').textContent = chosenStations.length === 0
-                ? 'Select your first station below.'
-                : chosenStations.length === 1
-                    ? 'Now select a different station for the second board.'
-                    : 'Both stations selected. Open your combined display.';
+                ? 'Select the first station below.'
+                : chosenStations.length === 4
+                    ? 'Four stations selected. Click a station to remove it or view your boards.'
+                    : 'Selected ' + chosenStations.length + ' of 4 stations. Add another or view your boards.';
             document.querySelectorAll('.station-item').forEach(el =>
                 el.classList.toggle('chosen', chosenStations.some(st => st.id === el.dataset.stationId)));
         }
@@ -245,10 +249,10 @@
             refreshSelection();
         });
         document.getElementById('viewBoards').addEventListener('click', () => {
-            if (chosenStations.length !== 2) return;
-            const [first, second] = chosenStations;
-            window.location.href = '/display/dual.html?station1=' +
-                encodeURIComponent(first.id) + '&station2=' + encodeURIComponent(second.id);
+            if (chosenStations.length < 2 || chosenStations.length > 4) return;
+            const params = new URLSearchParams();
+            chosenStations.forEach((station, i) => params.set('station' + (i + 1), station.id));
+            window.location.href = '/display/dual.html?' + params.toString();
         });
 
         const routeColors = {
@@ -364,10 +368,8 @@
             const existing = chosenStations.findIndex(st => st.id === stationId);
             if (existing >= 0) {
                 chosenStations.splice(existing, 1);
-            } else if (chosenStations.length < 2) {
+            } else if (chosenStations.length < 4) {
                 chosenStations.push({id: stationId, name: stationName});
-            } else {
-                chosenStations[1] = {id: stationId, name: stationName};
             }
             refreshSelection();
         }
