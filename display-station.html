@@ -162,6 +162,21 @@
     tbody tr.highlighted .table-route-bullet {
       border-color: white !important;
     }
+    /* Compact rendering when this board is embedded alongside another station. */
+    body.embedded #header-container { padding-top: 12px; }
+    body.embedded #weather-display, body.embedded #time-display,
+    body.embedded .back-link, body.embedded .fullscreen-btn { display:none!important; }
+    body.embedded h1 { font-size:clamp(18px,2.3vw,27px); margin:5px 0; }
+    body.embedded .route-toggles { margin:7px 0; max-height:75px; }
+    body.embedded .route-toggle { width:29px;height:29px;font-size:14px; }
+    body.embedded .table-route-bullet { height:28px;width:28px;font-size:15px;border-width:2px; }
+    body.embedded table { width:100%; margin:3px auto; table-layout:fixed; }
+    body.embedded th,body.embedded td { padding:7px 3px;font-size:clamp(11px,1.3vw,17px);overflow-wrap:anywhere; }
+    body.embedded th:nth-child(1) {width:16%}
+    body.embedded th:nth-child(2) {width:39%}
+    body.embedded th:nth-child(3) {width:19%}
+    body.embedded th:nth-child(4) {width:26%}
+    body.embedded .filter-hint{font-size:11px}
     #loading {
       color: yellow;
       font-size: 18px;
@@ -192,6 +207,8 @@
     <tbody id="arrival-table-body"></tbody>
   </table>
   <script>
+    const embedded = new URLSearchParams(location.search).get('embedded') === '1';
+    if (embedded) document.body.classList.add('embedded');
     const pathParts = window.location.pathname.split('/');
     const stationId = pathParts[pathParts.length - 1];
     let availableRoutes = [];
@@ -471,8 +488,8 @@
       const thead = document.querySelector('thead');
       const headerHeight = headerContainer ? headerContainer.offsetHeight : 150;
       const theadHeight = thead ? thead.offsetHeight : 50;
-      const tableMargin = 40;
-      const rowHeight = 60;
+      const tableMargin = embedded ? 12 : 40;
+      const rowHeight = embedded ? 48 : 60;
 
       const availableHeight = viewportHeight - headerHeight - theadHeight - tableMargin;
       const calculatedRows = Math.floor(availableHeight / rowHeight);
