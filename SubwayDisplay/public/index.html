@@ -148,6 +148,20 @@
             font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
         }
 
+        .mode-option { display:flex; gap:12px; align-items:center; justify-content:center; margin:-15px 0 24px; font-size:15px; cursor:pointer; }
+        .mode-option input { width:18px; height:18px; accent-color:#fff; }
+        .selection-panel { display:none; margin-bottom:20px; padding:15px; border:1px solid rgba(255,255,255,.25); border-radius:12px; background:rgba(0,0,0,.18); }
+        .selection-panel.visible { display:block; }
+        .selected-stations { display:grid; gap:8px; margin-bottom:12px; font-size:14px; }
+        .selected-stations div { display:flex; justify-content:space-between; gap:10px; }
+        .selected-stations strong { color:white; }
+        .selection-actions { display:flex; gap:10px; }
+        .selection-actions button { flex:1; padding:12px; border:0; border-radius:8px; cursor:pointer; font-size:14px; font-weight:700; }
+        #viewBoards { background:#fff; color:#173668; }
+        #viewBoards:disabled { opacity:.45; cursor:not-allowed; }
+        #clearBoards { background:rgba(255,255,255,.2); color:white; }
+        .station-item.chosen { background:rgba(255,255,255,.24); outline:2px solid rgba(255,255,255,.6); outline-offset:-2px; }
+        .selection-help { margin-bottom:10px; font-size:13px; opacity:.8; }
         .no-results {
             text-align: center;
             padding: 30px;
@@ -184,6 +198,18 @@
         <h1>🚇 NYC SUBWAY</h1>
         <div class="subtitle">Table Display</div>
         
+        <label class="mode-option"><input type="checkbox" id="dualMode"> Add a second station (side-by-side display)</label>
+        <div class="selection-panel" id="selectionPanel">
+            <div class="selection-help" id="selectionHelp">Select your first station below.</div>
+            <div class="selected-stations">
+                <div><span>Station 1</span><strong id="firstStation">Not selected</strong></div>
+                <div><span>Station 2</span><strong id="secondStation">Not selected</strong></div>
+            </div>
+            <div class="selection-actions">
+                <button id="clearBoards" type="button">Reset</button>
+                <button id="viewBoards" type="button" disabled>View both boards</button>
+            </div>
+        </div>
         <div class="search-box">
             <input type="text" id="searchInput" placeholder="Search for a station..." autocomplete="off">
         </div>
@@ -196,6 +222,34 @@
     <script>
         let stations = [];
         const stationRoutesCache = {};
+        let chosenStations = [];
+        const dualMode = document.getElementById('dualMode');
+
+        function refreshSelection() {
+            document.getElementById('selectionPanel').classList.toggle('visible', dualMode.checked);
+            document.getElementById('firstStation').textContent = chosenStations[0]?.name || 'Not selected';
+            document.getElementById('secondStation').textContent = chosenStations[1]?.name || 'Not selected';
+            document.getElementById('viewBoards').disabled = chosenStations.length !== 2;
+            document.getElementById('selectionHelp').textContent = chosenStations.length === 0
+                ? 'Select your first station below.'
+                : chosenStations.length === 1
+                    ? 'Now select a different station for the second board.'
+                    : 'Both stations selected. Open your combined display.';
+            document.querySelectorAll('.station-item').forEach(el =>
+                el.classList.toggle('chosen', chosenStations.some(st => st.id === el.dataset.stationId)));
+        }
+
+        dualMode.addEventListener('change', refreshSelection);
+        document.getElementById('clearBoards').addEventListener('click', () => {
+            chosenStations = [];
+            refreshSelection();
+        });
+        document.getElementById('viewBoards').addEventListener('click', () => {
+            if (chosenStations.length !== 2) return;
+            const [first, second] = chosenStations;
+            window.location.href = '/display/dual.html?station1=' +
+                encodeURIComponent(first.id) + '&station2=' + encodeURIComponent(second.id);
+        });
 
         const routeColors = {
             '1': { bg: '#EE352E', text: 'white' },
@@ -274,6 +328,7 @@
             stationsToShow.forEach(station => {
                 const item = document.createElement('div');
                 item.className = 'station-item';
+                item.dataset.stationId = station.id;
                 item.innerHTML = `
                     <div style="flex: 1;">
                         <div class="station-name">${station.name}</div>
@@ -298,10 +353,23 @@
                     }
                 });
             });
+            refreshSelection();
         }
 
         function selectStation(stationId, stationName) {
-            window.location.href = `/display/station/${stationId}`;
+            if (!dualMode.checked) {
+                window.location.href = '/display/station/' + encodeURIComponent(stationId);
+                return;
+            }
+            const existing = chosenStations.findIndex(st => st.id === stationId);
+            if (existing >= 0) {
+                chosenStations.splice(existing, 1);
+            } else if (chosenStations.length < 2) {
+                chosenStations.push({id: stationId, name: stationName});
+            } else {
+                chosenStations[1] = {id: stationId, name: stationName};
+            }
+            refreshSelection();
         }
 
         document.getElementById('searchInput').addEventListener('input', (e) => {
