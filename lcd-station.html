@@ -226,7 +226,9 @@
       display: flex;
       align-items: center;
       gap: 5px;
-      flex-shrink: 0;
+      /* Reserve a consistent status column so label length never shifts the ETAs. */
+      flex: 0 0 160px;
+      width: 160px;
       padding: 4px 10px;
       border-radius: 8px;
       font-size: 12px;
@@ -249,8 +251,11 @@
     .eta-boxes {
       display: flex;
       gap: 8px;
-      flex-shrink: 0;
+      /* Three fixed ETA slots keep every number in the same horizontal column. */
+      flex: 0 0 202px;
+      width: 202px;
       align-items: center;
+      justify-content: flex-start;
     }
     .eta-box {
       display: flex;
